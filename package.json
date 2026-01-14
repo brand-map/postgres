@@ -1,6 +1,6 @@
 {
-  "name": "@codeandmoney/dorjo",
-  "version": "0.0.0-dev.5",
+  "name": "@brand-map/postgres",
+  "version": "0.0.0-dev.6",
   "description": "Zero-Abstraction Postgres for TypeScript",
   "keywords": [
     "postgres",
