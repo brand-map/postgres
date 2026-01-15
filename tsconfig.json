@@ -25,7 +25,7 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "paths": {
-      "@codeandmoney/dorjo/schema": ["./src/typings/schema.ts"]
+      "@brand-map/postgres/schema": ["./src/typings/schema.ts"]
     }
   },
   "include": ["src/**/*"]

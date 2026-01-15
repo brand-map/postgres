@@ -12,7 +12,7 @@ export interface CustomTypes {
 
 const canaryVersion: SchemaVersionCanary["version"] = 104;
 const versionCanary = `
-  // got a type error on schemaVersionCanary below? update by running \`npx @codeandmoney/dorjo\`
+  // got a type error on schemaVersionCanary below? update by running \`npx @brand-map/postgres\`
   export interface schemaVersionCanary extends db.SchemaVersionCanary { version: ${canaryVersion} };`;
 
 const declareModule = (module: string, declarations: string) => `
@@ -105,9 +105,9 @@ export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => 
   const hasCustomTypes = Object.keys(customTypes).length > 0;
 
   const content = [
-    `import type * as db from '@codeandmoney/dorjo/db';`,
+    `import type * as db from '@brand-map/postgres/db';`,
     versionCanary,
-    hasCustomTypes ? `import type * as c from '@codeandmoney/dorjo/custom';` : ``,
+    hasCustomTypes ? `import type * as c from '@brand-map/postgres/custom';` : ``,
     schemaDefs.join("\n\n"),
     `/* === global aggregate types === */`,
     crossSchemaTypesForSchemas(schemaNames),
@@ -118,7 +118,7 @@ export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => 
   const ts = `
   ${header()}
   
-  ${declareModule("@codeandmoney/dorjo/schema", content)}
+  ${declareModule("@brand-map/postgres/schema", content)}
   `;
 
   const customTypeSourceFiles = sourceFilesForCustomTypes(customTypes);

@@ -26,7 +26,7 @@ export async function generate(suppliedConfig: Config) {
     header() +
     `
 // this empty declaration appears to fix relative imports in other custom type files
-declare module '@codeandmoney/dorjo/custom' { }
+declare module '@brand-map/postgres/custom' { }
 `;
 
   log(`(Re)creating schema folder: ${schemaTargetPath}`);

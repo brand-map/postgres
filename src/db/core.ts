@@ -2,7 +2,7 @@ import type * as pg from "pg";
 
 import { getConfig, type SqlQuery } from "./config";
 import type { NoInfer } from "./utils";
-import type { Updatable, Whereable, Table, Column } from "@codeandmoney/dorjo/schema";
+import type { Updatable, Whereable, Table, Column } from "@brand-map/postgres/schema";
 import assert from "node:assert/strict";
 import { snakeCase, toCamelCaseKeys } from "es-toolkit";
 

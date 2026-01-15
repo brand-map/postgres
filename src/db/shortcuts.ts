@@ -11,7 +11,7 @@ import type {
   Whereable,
   Table,
   Column,
-} from "@codeandmoney/dorjo/schema";
+} from "@brand-map/postgres/schema";
 import { type AllType, all, type Sql, SqlFragment, sql, cols, vals, raw, param, Default } from "./core";
 import { completeKeysWithDefaultValue, completeKeysWithDefaultValueObject, mapWithSeparator, type NoInfer } from "./utils";
 import assert from "node:assert/strict";
