@@ -1,4 +1,5 @@
 import type { Insertable } from "@brand-map/postgres/schema";
+
 import { cols as sqlCols, Default, sql, vals as sqlVals } from "./core";
 import { completeKeysWithDefaultValue, completeKeysWithDefaultValueObject, mapWithSeparator } from "./utils";
 

@@ -1,10 +1,10 @@
-import { tsTypeForPgType } from "./pg-types";
 import { camelCase, pascalCase } from "es-toolkit";
-
 import type * as pg from "pg";
-import type { EnumData } from "./enums";
-import type { CustomTypes } from "./ts-output";
+
 import type { CompleteConfig } from "./config";
+import type { EnumData } from "./enums";
+import { tsTypeForPgType } from "./pg-types";
+import type { CustomTypes } from "./ts-output";
 
 export interface Relation {
   schema: string;
@@ -334,7 +334,9 @@ function createColumnDoc(config: CompleteConfig, schemaName: string, rel: Relati
   } else if (isGenerated) {
     docsFragments.push('* - "Generated column"');
   } else {
-    docsFragments.push(`* - ${isNullable ? "Nullable" : "`NOT NULL`"}, ${hasDefault && defaultValue === null ? `identity column` : hasDefault ? `default: \`${defaultValue}\`` : `no default`}`);
+    docsFragments.push(
+      `* - ${isNullable ? "Nullable" : "`NOT NULL`"}, ${hasDefault && defaultValue === null ? `identity column` : hasDefault ? `default: \`${defaultValue}\`` : `no default`}`,
+    );
   }
 
   docsFragments.push("*/");

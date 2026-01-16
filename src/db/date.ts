@@ -84,7 +84,7 @@ export function toDate(d: string | null, tzInterpretation?: "UTC" | "local" | un
 }
 
 type DateTimeMap = {
-  timestamptz: TimestampTzString;
+  "timestamptz": TimestampTzString;
   "timestamp:UTC": TimestampString;
   "timestamp:local": TimestampString;
   "date:UTC": DateString;

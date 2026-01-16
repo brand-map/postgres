@@ -1,4 +1,5 @@
 import { pascalCase } from "es-toolkit";
+
 import type { CompleteConfig } from "./config";
 import type { EnumData } from "./enums";
 
@@ -15,9 +16,8 @@ const baseTsTypeForBasePgType = (pgType: string, enums: EnumData, context: TypeC
       return;
     }
 
-    warn(
-      `Note: this database has bigint/int8 and/or numeric/decimal columns, for which JSON.parse may lose precision. Please read the docs: https://jawj.github.io/dorjo/#custom-json-parsing-for-bigint-and-numeric`,
-    );
+    warn(`Note: this database has bigint/int8 and/or numeric/decimal columns, for which JSON.parse may lose precision.`);
+
     warnedAboutInt8AndNumeric = true;
   }
 

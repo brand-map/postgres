@@ -1,5 +1,3 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import type * as pg from "pg";
 
 export interface BaseConfig {
@@ -51,12 +49,6 @@ const defaultConfig: Config = {
   unprefixedSchema: "public",
   customJsonParsingForLargeNumbers: false,
 };
-
-// export const moduleRoot = () => {
-//   // import.meta.dirname could be either ./generate (ts) or ./dist/generate (js)
-//   const parentDir = path.join(import.meta.dirname, "..");
-//   return fs.existsSync(path.join(parentDir, "package.json")) ? parentDir : path.join(parentDir, "..");
-// };
 
 export const finaliseConfig = (config: Config) => {
   const finalConfig = { ...defaultConfig, ...config };

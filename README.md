@@ -1,1 +1,1 @@
-# DORJO: Zero-Abstraction Postgres for TypeScript
+# @brand-map/postgres: Zero-Abstraction Postgres for TypeScript

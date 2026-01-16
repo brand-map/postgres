@@ -1,10 +1,11 @@
+import assert from "node:assert/strict";
+
+import type { Updatable, Whereable, Table, Column } from "@brand-map/postgres/schema";
+import { snakeCase, toCamelCaseKeys } from "es-toolkit";
 import type * as pg from "pg";
 
 import { getConfig, type SqlQuery } from "./config";
 import type { NoInfer } from "./utils";
-import type { Updatable, Whereable, Table, Column } from "@brand-map/postgres/schema";
-import assert from "node:assert/strict";
-import { snakeCase, toCamelCaseKeys } from "es-toolkit";
 
 const timing = typeof performance === "object" ? () => performance.now() : () => Date.now();
 
@@ -68,7 +69,7 @@ export type ByteArrayString = `\\x${string}`;
  * Make a function `STRICT` in the Postgres sense — where it's an alias for
  * `RETURNS NULL ON NULL INPUT` — with appropriate typing.
  *
- * For example, Dorjo' `toBuffer()` function is defined as:
+ * For example `toBuffer()` function is defined as:
  *
  * ```
  * export const toBuffer = strict((ba: ByteArrayString) => Buffer.from(ba.slice(2), 'hex'));
@@ -274,9 +275,9 @@ export class SqlFragment<RunResult = pg.QueryResult["rows"], Constraint = never>
    * Instruct Postgres to treat this as a prepared statement: see
    * https://node-postgres.com/features/queries#prepared-statements
    * @param name A name for the prepared query. If not specified, it takes the
-   * value '_dorjo_prepared_N', where N is an increasing sequence number.
+   * value '_brand_map_postgres_prepared_N', where N is an increasing sequence number.
    */
-  prepared = (name = `_dorjo_prepared_${preparedNameSeq++}`) => {
+  prepared = (name = `_brand_map_postgres_prepared_${preparedNameSeq++}`) => {
     this.preparedName = name;
     return this;
   };
@@ -290,7 +291,7 @@ export class SqlFragment<RunResult = pg.QueryResult["rows"], Constraint = never>
   run = async (queryable: Queryable, force = false): Promise<RunResult> => {
     const query = this.compile();
     const { queryListener, resultListener } = getConfig();
-    const txnId = (queryable as any)._dorjo?.txnId;
+    const txnId = (queryable as any)._brand_map_postgres?.txnId;
 
     if (queryListener) {
       queryListener(query, txnId);
@@ -468,7 +469,7 @@ export class SqlFragment<RunResult = pg.QueryResult["rows"], Constraint = never>
       }
     } else if (typeof expression === "object") {
       if (expression === globalThis) {
-        throw new Error("Did you use `self` (the global object) where you meant `db.self` (the Dorjo value)? The global object cannot be embedded in a query.");
+        throw new Error("Did you use `self` (the global object) where you meant `db.self` (the Postgres value)? The global object cannot be embedded in a query.");
       }
 
       // must be a Whereable object, so put together a WHERE clause

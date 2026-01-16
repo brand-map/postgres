@@ -1,9 +1,10 @@
 import * as pg from "pg";
+
+import { getConfig } from "./config";
+import { sql, raw } from "./core";
+import type { Queryable } from "./core";
 import { isDatabaseError } from "./pg-errors";
 import { wait } from "./utils";
-import { sql, raw } from "./core";
-import { getConfig } from "./config";
-import type { Queryable } from "./core";
 
 export enum IsolationLevel {
   // these are the only meaningful values in Postgres:
@@ -28,7 +29,7 @@ export type IsolationSatisfying<T extends IsolationLevel> = {
 }[T];
 
 export interface TxnClient<T extends IsolationLevel> extends pg.PoolClient {
-  _dorjo?: { isolationLevel: T; txnId: number };
+  _brand_map_postgres?: { isolationLevel: T; txnId: number };
 }
 
 export type TxnClientForSerializable = TxnClient<IsolationSatisfying<IsolationLevel.Serializable>>;
@@ -88,7 +89,7 @@ export async function transaction<T, M extends IsolationLevel>(
   isolationLevel: M,
   callback: (client: TxnClient<IsolationSatisfying<M>>) => Promise<T>,
 ): Promise<T> {
-  if (Object.hasOwn(txnClientOrQueryable, "_dorjo")) {
+  if (Object.hasOwn(txnClientOrQueryable, "_brand_map_postgres")) {
     // if txnClientOrQueryable is a TxnClient, just pass it through
     return callback(txnClientOrQueryable as TxnClient<IsolationSatisfying<M>>);
   }
@@ -101,7 +102,7 @@ export async function transaction<T, M extends IsolationLevel>(
   const clientIsOurs = typeofQueryable(txnClientOrQueryable) === "pool";
   const txnClient = (clientIsOurs ? await txnClientOrQueryable.connect() : txnClientOrQueryable) as TxnClient<M>;
 
-  txnClient._dorjo = { isolationLevel, txnId };
+  txnClient._brand_map_postgres = { isolationLevel, txnId };
 
   const config = getConfig();
   const { transactionListener } = config;
@@ -147,7 +148,7 @@ export async function transaction<T, M extends IsolationLevel>(
       }
     }
   } finally {
-    delete txnClient._dorjo;
+    delete txnClient._brand_map_postgres;
     if (clientIsOurs) {
       txnClient.release();
     }
@@ -227,6 +228,9 @@ export async function readCommittedRO<T>(txnClientOrQueryable: Queryable | TxnCl
  * @param callback A callback function that runs queries on the client provided
  * to it
  */
-export async function serializableRODeferrable<T>(txnClientOrQueryable: Queryable | TxnClientForSerializableRODeferrable, callback: (client: TxnClientForSerializableRODeferrable) => Promise<T>) {
+export async function serializableRODeferrable<T>(
+  txnClientOrQueryable: Queryable | TxnClientForSerializableRODeferrable,
+  callback: (client: TxnClientForSerializableRODeferrable) => Promise<T>,
+) {
   return transaction(txnClientOrQueryable, IsolationLevel.SerializableRODeferrable, callback);
 }

@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+
 import type {
   JsonSelectableForTable,
   WhereableForTable,
@@ -12,10 +14,10 @@ import type {
   Table,
   Column,
 } from "@brand-map/postgres/schema";
+import { toCamelCaseKeys } from "es-toolkit";
+
 import { type AllType, all, type Sql, SqlFragment, sql, cols, vals, raw, param, Default } from "./core";
 import { completeKeysWithDefaultValue, completeKeysWithDefaultValueObject, mapWithSeparator, type NoInfer } from "./utils";
-import assert from "node:assert/strict";
-import { toCamelCaseKeys } from "es-toolkit";
 
 export type JsonOnlyColsForTable<T extends Table, C extends any[] /* `ColumnForTable<T>[]` gives errors here for reasons I haven't got to the bottom of */> = Pick<
   JsonSelectableForTable<T>,
@@ -30,7 +32,8 @@ export interface SqlFragmentOrColumnMap<T extends Table> {
   [k: string]: SqlFragment<any> | ColumnForTable<T>;
 }
 
-export type RunResultForSqlFragment<T extends SqlFragment<any, any>> = T extends SqlFragment<infer RunResult, any> ? (undefined extends RunResult ? NonNullable<RunResult> | null : RunResult) : never;
+export type RunResultForSqlFragment<T extends SqlFragment<any, any>> =
+  T extends SqlFragment<infer RunResult, any> ? (undefined extends RunResult ? NonNullable<RunResult> | null : RunResult) : never;
 
 export type LateralResult<L extends SqlFragmentMap> = {
   [K in keyof L]: RunResultForSqlFragment<L[K]>;
@@ -146,8 +149,13 @@ type UpsertReturnableForTable<T extends Table, C extends ColumnsOption<T>, E ext
 export type UpsertConflictTargetForTable<T extends Table> = Constraint<T> | ColumnForTable<T> | ColumnForTable<T>[];
 type UpdateColumns<T extends Table> = ColumnForTable<T> | ColumnForTable<T>[];
 
-interface UpsertOptions<T extends Table, C extends ColumnsOption<T>, E extends ExtrasOption<T>, UC extends UpdateColumns<T> | undefined, RA extends UpsertReportAction | undefined>
-  extends ReturningOptionsForTable<T, C, E> {
+interface UpsertOptions<
+  T extends Table,
+  C extends ColumnsOption<T>,
+  E extends ExtrasOption<T>,
+  UC extends UpdateColumns<T> | undefined,
+  RA extends UpsertReportAction | undefined,
+> extends ReturningOptionsForTable<T, C, E> {
   updateValues?: UpdatableForTable<T>;
   updateColumns?: UC;
   noNullUpdateColumns?: ColumnForTable<T> | ColumnForTable<T>[] | typeof all;

@@ -1,9 +1,7 @@
-#!/usr/bin/env node
-// ^^ this shebang is for the compiled JS file, not the TS source
-
 import * as fs from "node:fs";
-import { generate } from "./exports";
+
 import type { Config } from "./config";
+import { generate } from "./exports";
 
 function recursivelyInterpolateEnvVars(thing: unknown): any {
   // string? => do the interpolation
@@ -35,7 +33,7 @@ function recursivelyInterpolateEnvVars(thing: unknown): any {
 }
 
 async function main() {
-  const configFile = "dorjo.config.json";
+  const configFile = "brand-map-postgres.config.json";
   const configJson = fs.existsSync(configFile) ? fs.readFileSync(configFile, { encoding: "utf8" }) : "{}";
   const argsJson = process.argv[2] ?? "{}";
 
@@ -43,14 +41,14 @@ async function main() {
   try {
     fileConfig = recursivelyInterpolateEnvVars(JSON.parse(configJson));
   } catch (err: any) {
-    throw new Error(`If present, dorjoconfig.json must be a valid JSON file, and all referenced environment variables must exist: ${err.message}`);
+    throw new Error(`If present, brand-map-postgres.config.json must be a valid JSON file, and all referenced environment variables must exist: ${err.message}`);
   }
 
   let argsConfig;
   try {
     argsConfig = recursivelyInterpolateEnvVars(JSON.parse(argsJson));
   } catch (err: any) {
-    throw new Error(`If present, the argument to Dorjo must be valid JSON, and all referenced environment variables must exist: ${err.message}`);
+    throw new Error(`If present, the argument to Postgres must be valid JSON, and all referenced environment variables must exist: ${err.message}`);
   }
 
   await generate({ ...fileConfig, ...argsConfig } as Config);

@@ -1,12 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+
 import { finaliseConfig, type Config } from "./config";
-import { tsForConfig } from "./ts-output";
 import { header } from "./header";
+import { tsForConfig } from "./ts-output";
 
 /**
  * Generate a schema and supporting files and folders given a configuration.
- * @param suppliedConfig An object approximately matching `dorjoconfig.json`.
+ * @param suppliedConfig An object approximately matching `brand-map-postgres.config.json`.
  */
 export async function generate(suppliedConfig: Config) {
   const config = finaliseConfig(suppliedConfig);
@@ -14,7 +15,7 @@ export async function generate(suppliedConfig: Config) {
   const warn = config.warningListener === true ? console.log : config.warningListener || (() => void 0);
   const debug = config.debugListener === true ? console.log : config.debugListener || (() => void 0);
   const { ts, customTypeSourceFiles } = await tsForConfig(config, debug);
-  const schemaName = `dorjo.schema${config.outExt}`;
+  const schemaName = `brand-map-postgres.schema${config.outExt}`;
   const customFolderName = "custom";
   const customTypesIndexName = `index${config.outExt}`;
   const folderTargetPath = path.join(config.outDir);
