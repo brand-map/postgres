@@ -4,4 +4,8 @@
 
 ### »&nbsp; [Go to documentation](https://brand-map.dev/docs/postgres)
 
-2026 Brand-Map Team. Released under the MIT licence.
+this repo is shameless fork of [Zapatos](https://github.com/jawj/zapatos)
+
+<!-- 2026 Brand-Map Team. Released under the MIT licence. -->
+
+
