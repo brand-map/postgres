@@ -1,0 +1,45 @@
+{
+  "name": "@brand-map/postgres",
+  "version": "0.0.0-dev.8",
+  "description": "Zero-Abstraction Postgres for TypeScript",
+  "keywords": [
+    "orm",
+    "postgres",
+    "sql",
+    "typescript"
+  ],
+  "license": "MIT",
+  "exports": {
+    "./db": "./src/db/exports.ts",
+    "./generate": "./src/generate/exports.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bunx tsc",
+    "postinstall": "bun --eval \"console.warn('>>> \\u001b[1;@brand-map/postgres was installed or upgraded. Please (re-)run \\u001b[1;32mnpx @brand-map/postgres\\u001b[1;33m.\\u001b[0m <<<\\u000a')\"",
+    "version": "pm run build",
+    "postversion": "git push && git push --tags && npm publish",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "dependencies": {
+    "es-toolkit": "^1.43.0",
+    "json-custom-numbers": "^3.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.3",
+    "@types/pg": "^8.15.6",
+    "oxfmt": "^0.24.0",
+    "pg": "^8.16.3",
+    "typescript": "^5.9.3",
+    "vitepress": "^2.0.0-alpha.15"
+  },
+  "peerDependencies": {
+    "@types/pg": ">=7.14.3",
+    "pg": ">=7.18.2",
+    "typescript": ">=4.1"
+  }
+}
