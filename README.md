@@ -4,7 +4,7 @@
 
 ### »&nbsp; [Go to documentation](https://brand-map.dev/docs/postgres)
 
-this repo is shameless fork of [Zapatos](https://github.com/jawj/zapatos)
+this repo is a shameless fork of [Zapatos](https://github.com/jawj/zapatos)
 
 <!-- 2026 Brand-Map Team. Released under the MIT licence. -->
 
