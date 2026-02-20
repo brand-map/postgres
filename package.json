@@ -21,6 +21,8 @@
   },
   "scripts": {
     "build": "bunx tsc",
+    "test": "bun test",
+    "test:integration": "bun test tests/generate.integration.test.ts",
     "postinstall": "bun --eval \"console.warn('>>> @brand-map/postgres was installed or upgraded. Please (re-)run bunx @brand-map/postgres. <<<\\\\n')\"",
     "version": "bun run build",
     "prepack": "bun run build",

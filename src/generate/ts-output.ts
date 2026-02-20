@@ -1,6 +1,6 @@
 import * as pg from "pg";
 
-import type { SchemaVersionCanary } from "../db/canary";
+// import type { SchemaVersionCanary } from "../db/canary";
 
 import type { CompleteConfig } from "./config";
 import { enumDataForSchema, enumTypesForEnumData } from "./enums";
@@ -11,10 +11,10 @@ export interface CustomTypes {
   [name: string]: string; // any, or TS type for domain's base type
 }
 
-const canaryVersion: SchemaVersionCanary["version"] = 104;
-const versionCanary = `
-  // got a type error on schemaVersionCanary below? update by running \`npx @brand-map/postgres\`
-  export interface schemaVersionCanary extends db.SchemaVersionCanary { version: ${canaryVersion} };`;
+// const canaryVersion: SchemaVersionCanary["version"] = 104;
+// const versionCanary = `
+//   // got a type error on schemaVersionCanary below? update by running \`bunx @brand-map/postgres\`
+//   export interface schemaVersionCanary extends db.SchemaVersionCanary { version: ${canaryVersion} };`;
 
 const declareModule = (module: string, declarations: string) => `
 declare module '${module}' {
@@ -61,70 +61,73 @@ export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => 
       const result = await pool.query(query);
       debug(`<<< result ${seq} <<<\n${JSON.stringify(result, null, 2)}\n`);
       return result;
-    } catch (e) {
-      console.log(`*** error ${seq} ***`, e);
-      process.exit(1);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      const cleanedQuery = query.text.replace(/^\s+|\s+$/gm, "");
+      throw new Error(`Schema generation query ${seq} failed: ${err.message}\nSQL:\n${cleanedQuery}\nvalues: ${JSON.stringify(query.values)}`, { cause: err });
     }
   };
 
-  const schemaData = await Promise.all(
-    schemaNames.map(async (schema) => {
-      const rules = schemas[schema];
-      const tables =
-        rules?.exclude === "*"
-          ? []
-          : // exclude takes precedence
-            (await relationsInSchema(schema, queryFn))
-              .filter((rel) => rules?.include === "*" || rules?.include?.indexOf(rel.name)! >= 0)
-              .filter((rel) => rules?.exclude.indexOf(rel.name)! < 0);
-      const enums = await enumDataForSchema(schema, queryFn);
-      const tableDefs = await Promise.all(tables.map(async (table) => definitionForRelationInSchema(table, schema, enums, customTypes, config, queryFn)));
-      const schemaIsUnprefixed = schema === config.unprefixedSchema;
-      const none = "/* (none) */";
-      const schemaDef =
-        `/* === schema: ${schema} === */\n` +
-        (schemaIsUnprefixed ? "" : `\nexport namespace ${schema} {\n`) +
-        indentAll(
-          schemaIsUnprefixed ? 0 : 2,
-          `\n/* --- enums --- */\n` +
-            (enumTypesForEnumData(enums) || none) +
-            `\n\n/* --- tables --- */\n` +
-            (tableDefs.join("\n") || none) +
-            `\n\n/* --- aggregate types --- */\n` +
-            (schemaIsUnprefixed ? `\nexport namespace ${schema} {${indentAll(2, crossTableTypesForTables(tables) || none)}\n}\n` : crossTableTypesForTables(tables) || none),
-        ) +
-        "\n" +
-        (schemaIsUnprefixed ? "" : `}\n`);
+  try {
+    const schemaData = await Promise.all(
+      schemaNames.map(async (schema) => {
+        const rules = schemas[schema];
+        const tables =
+          rules?.exclude === "*"
+            ? []
+            : // exclude takes precedence
+              (await relationsInSchema(schema, queryFn))
+                .filter((rel) => rules?.include === "*" || rules?.include?.indexOf(rel.name)! >= 0)
+                .filter((rel) => rules?.exclude.indexOf(rel.name)! < 0);
+        const enums = await enumDataForSchema(schema, queryFn);
+        const tableDefs = await Promise.all(tables.map(async (table) => definitionForRelationInSchema(table, schema, enums, customTypes, config, queryFn)));
+        const schemaIsUnprefixed = schema === config.unprefixedSchema;
+        const none = "/* (none) */";
+        const schemaDef =
+          `/* === schema: ${schema} === */\n` +
+          (schemaIsUnprefixed ? "" : `\nexport namespace ${schema} {\n`) +
+          indentAll(
+            schemaIsUnprefixed ? 0 : 2,
+            `\n/* --- enums --- */\n` +
+              (enumTypesForEnumData(enums) || none) +
+              `\n\n/* --- tables --- */\n` +
+              (tableDefs.join("\n") || none) +
+              `\n\n/* --- aggregate types --- */\n` +
+              (schemaIsUnprefixed ? `\nexport namespace ${schema} {${indentAll(2, crossTableTypesForTables(tables) || none)}\n}\n` : crossTableTypesForTables(tables) || none),
+          ) +
+          "\n" +
+          (schemaIsUnprefixed ? "" : `}\n`);
 
-      return { schemaDef, tables };
-    }),
-  );
+        return { schemaDef, tables };
+      }),
+    );
 
-  const schemaDefs = schemaData.map((r) => r.schemaDef);
-  const schemaTables = schemaData.map((r) => r.tables);
-  const allTables = ([] as Relation[]).concat(...schemaTables);
-  const hasCustomTypes = Object.keys(customTypes).length > 0;
+    const schemaDefs = schemaData.map((r) => r.schemaDef);
+    const schemaTables = schemaData.map((r) => r.tables);
+    const allTables = ([] as Relation[]).concat(...schemaTables);
+    const hasCustomTypes = Object.keys(customTypes).length > 0;
 
-  const content = [
-    `import type * as db from '@brand-map/postgres/db';`,
-    versionCanary,
-    hasCustomTypes ? `import type * as c from '@brand-map/postgres/custom';` : ``,
-    schemaDefs.join("\n\n"),
-    `/* === global aggregate types === */`,
-    crossSchemaTypesForSchemas(schemaNames),
-    `/* === lookups === */`,
-    crossSchemaTypesForAllTables(allTables, config.unprefixedSchema),
-  ].join("\n\n");
+    const content = [
+      `import type * as db from '@brand-map/postgres/db';`,
+      // versionCanary,
+      hasCustomTypes ? `import type * as c from '@brand-map/postgres/custom';` : ``,
+      schemaDefs.join("\n\n"),
+      `/* === global aggregate types === */`,
+      crossSchemaTypesForSchemas(schemaNames),
+      `/* === lookups === */`,
+      crossSchemaTypesForAllTables(allTables, config.unprefixedSchema),
+    ].join("\n\n");
 
-  const ts = `
+    const ts = `
   ${header()}
   
   ${declareModule("@brand-map/postgres/schema", content)}
   `;
 
-  const customTypeSourceFiles = sourceFilesForCustomTypes(customTypes);
+    const customTypeSourceFiles = sourceFilesForCustomTypes(customTypes);
 
-  await pool.end();
-
-  return { ts, customTypeSourceFiles };
+    return { ts, customTypeSourceFiles };
+  } finally {
+    await pool.end();
+  }
 };

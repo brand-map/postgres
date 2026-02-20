@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 import * as fs from "node:fs";
 
 import type { Config } from "./config";
@@ -54,4 +56,4 @@ async function main() {
   await generate({ ...fileConfig, ...argsConfig } as Config);
 }
 
-void (await main());
+void main();
