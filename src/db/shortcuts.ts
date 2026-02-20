@@ -560,7 +560,7 @@ export const select: SelectSignatures = function (
       query.runResultTransform = function transformResult(queryResult) {
         assert(queryResult.rows.length === 1);
         const result = queryResult.rows[0]?.result;
-        assert(result === undefined, new NotExactlyOneError(query, "One result expected but none returned (hint: check `.query.compile()` on this Error)"));
+        assert(result !== undefined, new NotExactlyOneError(query, "One result expected but none returned (hint: check `.query.compile()` on this Error)"));
         return toCamelCaseKeys(result);
       };
       break;
