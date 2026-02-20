@@ -1,10 +1,10 @@
 import { camelCase, pascalCase } from "es-toolkit";
-import type * as pg from "pg";
 
-import type { CompleteConfig } from "./config";
+import type { GeneratorCommonConfig, CustomTypes } from "../../types/generate";
+import type { QueryResult, SqlQuery } from "../../types/query";
+
 import type { EnumData } from "./enums";
 import { tsTypeForPgType } from "./pg-types";
-import type { CustomTypes } from "./ts-output";
 
 export interface Relation {
   schema: string;
@@ -13,7 +13,7 @@ export interface Relation {
   insertable: boolean;
 }
 
-export async function relationsInSchema(schemaName: string, queryFn: (q: pg.QueryConfig) => Promise<pg.QueryResult<any>>): Promise<Relation[]> {
+export async function relationsInSchema(schemaName: string, queryFn: (q: SqlQuery) => Promise<QueryResult<any>>): Promise<Relation[]> {
   const { rows } = await queryFn({
     text: `--sql
       SELECT $1 as schema
@@ -42,7 +42,7 @@ export async function relationsInSchema(schemaName: string, queryFn: (q: pg.Quer
   return rows;
 }
 
-async function columnsForRelation(rel: Relation, schemaName: string, queryFn: (q: pg.QueryConfig) => Promise<pg.QueryResult<any>>) {
+async function columnsForRelation(rel: Relation, schemaName: string, queryFn: (q: SqlQuery) => Promise<QueryResult<any>>) {
   const { rows } = await queryFn({
     text:
       rel.type === "mview"
@@ -96,12 +96,11 @@ export async function definitionForRelationInSchema(
   schemaName: string,
   enums: EnumData,
   customTypes: CustomTypes, // an 'out' parameter
-  config: CompleteConfig,
-  queryFn: (q: pg.QueryConfig) => Promise<pg.QueryResult<any>>,
+  config: GeneratorCommonConfig,
+  queryFn: (q: SqlQuery) => Promise<QueryResult<any>>,
 ): Promise<string> {
   const rows = await columnsForRelation(rel, schemaName, queryFn);
   const pascalRelName = pascalCase(rel["name"]);
-  // console.log('🚀 ~ pascalRelName:', pascalRelName)
 
   const selectables: string[] = [];
   const JsonSelectables: string[] = [];
@@ -194,7 +193,7 @@ export namespace ${pascalRelName} {
   export interface Whereable { ${whereables.join("\n    ")} }
   export interface Insertable { ${insertables.length > 0 ? insertables.join("\n    ") : `[key: string]: never;`} }
   export interface Updatable { ${updatables.length > 0 ? updatables.join("\n    ") : `[key: string]: never;`} }
-  export type UniqueIndex = ${uniqueIndexes.length > 0 ? uniqueIndexes.map((ui) => `'${ui.indexname}'`).join(" | ") : "never"};
+  export type UniqueIndex = ${uniqueIndexes.length > 0 ? uniqueIndexes.map((ui: { indexname: string }) => `'${ui.indexname}'`).join(" | ") : "never"};
   export type Column = keyof Selectable;
   export type OnlyCols<T extends readonly Column[]> = Pick<Selectable, T[number]>;
   export type SqlExpression = Table | db.ColumnNames<Updatable | (keyof Updatable)[]> | db.ColumnValues<Updatable> | Whereable | Column | db.ParentColumn | db.GenericSqlExpression;
@@ -206,7 +205,7 @@ export namespace ${pascalRelName} {
   return tableDef;
 }
 
-function transformCustomType(customType: string, config: CompleteConfig): string {
+function transformCustomType(customType: string, config: GeneratorCommonConfig): string {
   const ctt = config.customTypesTransform;
   const underscoredType = customType.replace(/\W+/g, "_");
   const legalisedType = customType.replace(/\W+/g, "");
@@ -309,7 +308,7 @@ export type AllTablesAndViews = ${schemaMappedArray(schemas, "AllTablesAndViews"
 `;
 };
 
-function createColumnDoc(config: CompleteConfig, schemaName: string, rel: Relation, columnDetails: Record<string, unknown>) {
+function createColumnDoc(config: GeneratorCommonConfig, schemaName: string, rel: Relation, columnDetails: Record<string, unknown>) {
   if (!config.schemaJSDoc) {
     return "";
   }

@@ -60,5 +60,5 @@ export const before = lt;
 export const now = sql`now()`;
 
 // these are really more operations than conditions, but we sneak them in here for now, for use e.g. in UPDATE queries
-export const add = <T extends number | Date>(a: T) => sql<Sql, number, T>`${self} + ${conditionalParam(a)}`;
-export const subtract = <T extends number | Date>(a: T) => sql<Sql, number, T>`${self} - ${conditionalParam(a)}`;
+export const add = <T extends number | string>(a: T) => sql<Sql, number, T>`${self} + ${conditionalParam(a)}`;
+export const subtract = <T extends number | string>(a: T) => sql<Sql, number, T>`${self} - ${conditionalParam(a)}`;

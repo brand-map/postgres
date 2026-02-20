@@ -1,20 +1,17 @@
-import * as pg from "pg";
-
-// import type { SchemaVersionCanary } from "../db/canary";
+import { enumDataForSchema, enumTypesForEnumData } from "../../shared/generate/enums";
+import { header } from "../../shared/generate/header";
+import {
+  relationsInSchema,
+  definitionForRelationInSchema,
+  crossTableTypesForTables,
+  crossSchemaTypesForAllTables,
+  crossSchemaTypesForSchemas,
+  type Relation,
+} from "../../shared/generate/tables";
+import type { CustomTypes } from "../../types/generate";
+import type { QueryResult, SqlQuery } from "../../types/query";
 
 import type { CompleteConfig } from "./config";
-import { enumDataForSchema, enumTypesForEnumData } from "./enums";
-import { header } from "./header";
-import { relationsInSchema, definitionForRelationInSchema, crossTableTypesForTables, crossSchemaTypesForAllTables, crossSchemaTypesForSchemas, type Relation } from "./tables";
-
-export interface CustomTypes {
-  [name: string]: string; // any, or TS type for domain's base type
-}
-
-// const canaryVersion: SchemaVersionCanary["version"] = 104;
-// const versionCanary = `
-//   // got a type error on schemaVersionCanary below? update by running \`bunx @brand-map/postgres\`
-//   export interface schemaVersionCanary extends db.SchemaVersionCanary { version: ${canaryVersion} };`;
 
 const declareModule = (module: string, declarations: string) => `
 declare module '${module}' {
@@ -35,7 +32,7 @@ function sourceFilesForCustomTypes(customTypes: CustomTypes) {
       customTypeHeader +
         declareModule(
           "@brand-map/postgres/custom",
-          `${baseType === "db.JsonValue" ? `import type * as db from '@brand-map/postgres/db';\n` : ``}export type ${name} = ${baseType};  // replace with your custom type or interface as desired`,
+          `${baseType === "db.JsonValue" ? `import type * as db from '@brand-map/postgres/bun';\n` : ``}export type ${name} = ${baseType};  // replace with your custom type or interface as desired`,
         ),
     ]),
   );
@@ -48,25 +45,61 @@ function indentAll(level: number, s: string) {
   return s.replace(/^/gm, " ".repeat(level));
 }
 
+interface BunSqlClient {
+  unsafe<T = any[]>(query: string, values?: any[]): Promise<T>;
+  close(options?: { timeout?: number }): Promise<void>;
+}
+
+function normaliseBunSqlOptions(options: CompleteConfig["options"]) {
+  if (typeof options === "object" && options !== null && "connectionString" in options && typeof (options as { connectionString?: unknown }).connectionString === "string") {
+    return (options as { connectionString: string }).connectionString;
+  }
+
+  return options;
+}
+
+async function createBunSqlClient(options: CompleteConfig["options"]): Promise<BunSqlClient> {
+  let bunModule: { SQL?: new (options?: unknown) => BunSqlClient };
+  try {
+    bunModule = (await import("bun")) as { SQL?: new (options?: unknown) => BunSqlClient };
+  } catch (err) {
+    throw new Error(`This runtime cannot import module "bun"`, { cause: err });
+  }
+
+  if (typeof bunModule.SQL !== "function") {
+    throw new Error(`Bun.SQL is unavailable`);
+  }
+
+  return new bunModule.SQL(normaliseBunSqlOptions(options));
+}
+
 export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => void) => {
   let querySeq = 0;
-  const { schemas, db } = config;
-  const pool = new pg.Pool(db);
-  const customTypes = {};
+  const { schemas, options } = config;
+  const bunSql = await createBunSqlClient(options);
+  const customTypes: CustomTypes = {};
   const schemaNames = Object.keys(schemas);
+  let queryChain = Promise.resolve();
 
-  const queryFn = async (query: pg.QueryConfig, seq = querySeq++) => {
-    try {
-      debug(`>>> query ${seq} >>>\n${query.text.replace(/^\s+|\s+$/gm, "")}\n+ ${JSON.stringify(query.values)}\n`);
-      const result = await pool.query(query);
-      debug(`<<< result ${seq} <<<\n${JSON.stringify(result, null, 2)}\n`);
-      return result;
-    } catch (e: unknown) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      const cleanedQuery = query.text.replace(/^\s+|\s+$/gm, "");
-      throw new Error(`Schema generation query ${seq} failed: ${err.message}\nSQL:\n${cleanedQuery}\nvalues: ${JSON.stringify(query.values)}`, { cause: err });
-    }
-  };
+  const queryFn = async (query: SqlQuery, seq = querySeq++): Promise<QueryResult<any>> =>
+    new Promise<QueryResult<any>>((resolve, reject) => {
+      queryChain = queryChain.finally(async () => {
+        try {
+          debug(`>>> query ${seq} >>>\n${query.text.replace(/^\s+|\s+$/gm, "")}\n+ ${JSON.stringify(query.values)}\n`);
+          const rows = await bunSql.unsafe(query.text, query.values);
+          if (!Array.isArray(rows)) {
+            throw new Error(`Bun SQL query did not return a row array`);
+          }
+          const result = { rows };
+          debug(`<<< result ${seq} <<<\n${JSON.stringify(result, null, 2)}\n`);
+          resolve(result);
+        } catch (e: unknown) {
+          const err = e instanceof Error ? e : new Error(String(e));
+          const cleanedQuery = query.text.replace(/^\s+|\s+$/gm, "");
+          reject(new Error(`Schema generation query ${seq} failed: ${err.message}\nSQL:\n${cleanedQuery}\nvalues: ${JSON.stringify(query.values)}`, { cause: err }));
+        }
+      });
+    });
 
   try {
     const schemaData = await Promise.all(
@@ -108,8 +141,7 @@ export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => 
     const hasCustomTypes = Object.keys(customTypes).length > 0;
 
     const content = [
-      `import type * as db from '@brand-map/postgres/db';`,
-      // versionCanary,
+      `import type * as db from '@brand-map/postgres/bun';`,
       hasCustomTypes ? `import type * as c from '@brand-map/postgres/custom';` : ``,
       schemaDefs.join("\n\n"),
       `/* === global aggregate types === */`,
@@ -128,6 +160,6 @@ export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => 
 
     return { ts, customTypeSourceFiles };
   } finally {
-    await pool.end();
+    await bunSql.close();
   }
 };

@@ -10,7 +10,8 @@ This page shows practical `brand-map-postgres.config.json` examples for schema g
 
 ```json
 {
-  "db": {
+  "client": "pg",
+  "config": {
     "connectionString": "{{DATABASE_URL}}"
   }
 }
@@ -20,7 +21,8 @@ This page shows practical `brand-map-postgres.config.json` examples for schema g
 
 ```json
 {
-  "db": {
+  "client": "pg",
+  "config": {
     "connectionString": "{{DATABASE_URL}}"
   },
   "outDir": "./src/generated",
@@ -31,9 +33,7 @@ This page shows practical `brand-map-postgres.config.json` examples for schema g
     },
     "analytics": {
       "include": "*",
-      "exclude": [
-        "internal_rollups"
-      ]
+      "exclude": ["internal_rollups"]
     }
   },
   "unprefixedSchema": "public"

@@ -29,4 +29,3 @@ For example, all ordinary tables in the `public` schema are listed in `public.Al
 - `UniqueIndexForTable<Table>`
 - `ColumnForTable<Table>`
 - `SQLForTable<Table>`
-

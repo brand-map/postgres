@@ -2,12 +2,35 @@ import assert from "node:assert/strict";
 
 import type { Updatable, Whereable, Table, Column } from "@brand-map/postgres/schema";
 import { snakeCase, toCamelCaseKeys } from "es-toolkit";
-import type * as pg from "pg";
 
-import { getConfig, type SqlQuery } from "./config";
+import type { QueryResult, SqlQuery } from "../../types/query";
+
+import { getConfig } from "./config";
 import type { NoInfer } from "./utils";
 
 const timing = typeof performance === "object" ? () => performance.now() : () => Date.now();
+
+function normaliseDateValues<T>(value: T): T {
+  if (value instanceof Date) {
+    return value.toISOString() as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normaliseDateValues(item)) as T;
+  }
+
+  if (value !== null && typeof value === "object" && value.constructor === Object) {
+    const result: Record<string, unknown> = {};
+
+    for (const [key, entry] of Object.entries(value)) {
+      result[key] = normaliseDateValues(entry);
+    }
+
+    return result as T;
+  }
+
+  return value;
+}
 
 // === symbols, types, wrapper classes and shortcuts ===
 
@@ -48,11 +71,9 @@ export type NumericString = `${number}`;
 export type RangeString<Bound extends string | number> = `${"[" | "("}${Bound},${Bound}${"]" | ")"}`;
 
 /**
- * `tsrange`, `tstzrange` or `daterange` value represented as a string. The
- * format of the upper and lower bound `date`, `timestamp` or `timestamptz`
- * values depends on pg's `DateStyle` setting.
+ * `tsrange`, `tstzrange` or `daterange` value represented as a plain string.
  */
-export type DateRangeString = RangeString<string>;
+export type DateRangeString = string;
 
 /**
  * `int4range`, `int8range` or `numrange` value represented as a string
@@ -214,7 +235,41 @@ export type GenericSqlExpression = SqlFragment<any, any> | Parameter | DefaultTy
 export type SqlExpression = Table | ColumnNames<Updatable | (keyof Updatable)[]> | ColumnValues<Updatable | any[]> | Whereable | Column | ParentColumn | GenericSqlExpression;
 export type Sql = SqlExpression | SqlExpression[];
 
-export type Queryable = pg.ClientBase | pg.Pool;
+export type { QueryResult, SqlQuery };
+
+export interface PgQueryable {
+  query(query: SqlQuery): Promise<QueryResult>;
+}
+
+export interface BunSqlQueryable {
+  unsafe<T = any[]>(query: string, values?: any[]): Promise<T>;
+}
+
+export type Queryable = PgQueryable | BunSqlQueryable;
+
+export function isPgQueryable(queryable: Queryable): queryable is PgQueryable {
+  return typeof (queryable as PgQueryable).query === "function";
+}
+
+export function isBunSqlQueryable(queryable: Queryable): queryable is BunSqlQueryable {
+  return typeof (queryable as BunSqlQueryable).unsafe === "function";
+}
+
+export async function executeQuery(queryable: Queryable, query: SqlQuery): Promise<QueryResult> {
+  if (isPgQueryable(queryable)) {
+    return queryable.query(query);
+  }
+
+  if (isBunSqlQueryable(queryable)) {
+    const rows = await queryable.unsafe(query.text, query.values);
+    if (!Array.isArray(rows)) {
+      throw new Error(`Bun SQL query did not return row array`);
+    }
+    return { rows };
+  }
+
+  throw new Error(`Unsupported queryable: expected either { query(...) } or { unsafe(...) }`);
+}
 
 // === Sql tagged template strings ===
 
@@ -224,22 +279,23 @@ export type Queryable = pg.ClientBase | pg.Pool;
  * defines what type the `SqlFragment` produces, where relevant (i.e. when
  * calling `.run(...)` on it, or using it as the value of an `extras` object).
  */
-export function sql<Interpolations = Sql, RunResult = pg.QueryResult["rows"], Constraint = never>(literals: TemplateStringsArray, ...expressions: NoInfer<Interpolations>[]) {
+export function sql<Interpolations = Sql, RunResult = QueryResult["rows"], Constraint = never>(literals: TemplateStringsArray, ...expressions: NoInfer<Interpolations>[]) {
   return new SqlFragment<RunResult, Constraint>(Array.prototype.slice.apply(literals), expressions as Sql[]);
 }
 
 let preparedNameSeq = 0;
 
-export class SqlFragment<RunResult = pg.QueryResult["rows"], Constraint = never> {
+export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
   protected constraint?: Constraint;
 
   /**
-   * When calling `run`, this function is applied to the object returned by `pg`
+   * When calling `run`, this function is applied to the object returned by the
+   * database queryable
    * to produce the result that is returned. By default, the `rows` array is
    * returned — i.e. `(queryResult) => queryResult.rows` — but some shortcut functions alter this
    * in order to match their declared `RunResult` type.
    */
-  runResultTransform: (queryResult: pg.QueryResult) => any = (queryResult) => toCamelCaseKeys(queryResult.rows);
+  runResultTransform: (queryResult: QueryResult) => any = (queryResult) => normaliseDateValues(toCamelCaseKeys(queryResult.rows));
 
   parentTable?: string = undefined; // used for nested shortcut select queries
   preparedName?: string = undefined; // for prepared statements
@@ -288,7 +344,10 @@ export class SqlFragment<RunResult = pg.QueryResult["rows"], Constraint = never>
    * @param queryable A database client or pool
    * @param force If true, force this query to hit the DB even if it's marked as a no-op
    */
-  run = async (queryable: Queryable, force = false): Promise<RunResult> => {
+  run: {
+    (queryable: PgQueryable, force?: boolean): Promise<RunResult>;
+    (queryable: BunSqlQueryable, force?: boolean): Promise<RunResult>;
+  } = async (queryable: Queryable, force = false): Promise<RunResult> => {
     const query = this.compile();
     const { queryListener, resultListener } = getConfig();
     const txnId = (queryable as any)._brand_map_postgres?.txnId;
@@ -304,7 +363,7 @@ export class SqlFragment<RunResult = pg.QueryResult["rows"], Constraint = never>
     }
 
     if (!this.noop || force) {
-      const queryResult = await queryable.query(query);
+      const queryResult = await executeQuery(queryable, query);
       result = this.runResultTransform(queryResult);
     } else {
       result = this.noopResult;
@@ -379,23 +438,24 @@ export class SqlFragment<RunResult = pg.QueryResult["rows"], Constraint = never>
       // parameters become placeholders, and a corresponding entry in the values array
       const placeholder = `$${String(result.values.length + 1)}`; // 1-based indexing
       const config = getConfig();
+      const parameterValue = normaliseDateValues(expression.value);
 
       if (
-        (expression.cast !== false && (expression.cast === true || config.castArrayParamsToJson) && Array.isArray(expression.value)) ||
+        (expression.cast !== false && (expression.cast === true || config.castArrayParamsToJson) && Array.isArray(parameterValue)) ||
         (expression.cast !== false &&
           (expression.cast === true || config.castObjectParamsToJson) &&
-          typeof expression.value === "object" &&
-          expression.value !== null &&
-          expression.value.constructor === Object &&
-          expression.value.toString() === "[object Object]")
+          typeof parameterValue === "object" &&
+          parameterValue !== null &&
+          parameterValue.constructor === Object &&
+          parameterValue.toString() === "[object Object]")
       ) {
-        result.values.push(JSON.stringify(expression.value));
+        result.values.push(JSON.stringify(parameterValue));
         result.text += `CAST(${placeholder} AS "json")`;
       } else if (typeof expression.cast === "string") {
-        result.values.push(expression.value);
+        result.values.push(parameterValue);
         result.text += `CAST(${placeholder} AS "${expression.cast}")`;
       } else {
-        result.values.push(expression.value);
+        result.values.push(parameterValue);
         result.text += placeholder;
       }
     } else if (expression === Default) {

@@ -18,5 +18,11 @@ bunx @brand-map/postgres
 
 This project is a fork of [Zapatos](https://github.com/jawj/zapatos).
 
-<!-- 2026 Brand-Map Team. Released under the MIT licence. -->
+Runtime query execution supports both `pg` and Bun SQL clients.
 
+- `@brand-map/postgres/pg`
+- `@brand-map/postgres/bun`
+- `@brand-map/postgres/shared`
+- `@brand-map/postgres/types`
+
+<!-- 2026 Brand-Map Team. Released under the MIT licence. -->

@@ -1,8 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { header } from "../../shared/generate/header";
+
 import { finaliseConfig, type Config } from "./config";
-import { header } from "./header";
 import { tsForConfig } from "./ts-output";
 
 type GenerateDeps = {

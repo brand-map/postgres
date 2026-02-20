@@ -3,9 +3,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { generate } from "../src/generate/write";
+import { generate } from "../../src/pg/generate/write";
 
 const createdDirs: string[] = [];
+const pgConfig = { client: "pg" as const, config: "postgresql://postgres:postgres@localhost:5432/postgres" };
 
 function makeTempDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "brand-map-postgres-generate-test-"));
@@ -25,7 +26,7 @@ describe("generate/write", () => {
     const outDir = makeTempDir();
 
     await generate(
-      { outDir, progressListener: false, warningListener: false },
+      { ...pgConfig, outDir, progressListener: false, warningListener: false },
       {
         tsForConfig: async () => ({
           ts: "export type Marker = 'schema';\n",
@@ -46,7 +47,7 @@ describe("generate/write", () => {
     const outDir = makeTempDir();
 
     await generate(
-      { outDir, progressListener: false, warningListener: false },
+      { ...pgConfig, outDir, progressListener: false, warningListener: false },
       {
         tsForConfig: async () => ({
           ts: "export type Schema = true;\n",
@@ -86,6 +87,7 @@ describe("generate/write", () => {
 
     await generate(
       {
+        ...pgConfig,
         outDir,
         progressListener: false,
         warningListener: (msg) => warnings.push(msg),
@@ -111,7 +113,7 @@ describe("generate/write", () => {
     const outDir = makeTempDir();
 
     await generate(
-      { outDir, outExt: ".ts", progressListener: false, warningListener: false },
+      { ...pgConfig, outDir, outExt: ".ts", progressListener: false, warningListener: false },
       {
         tsForConfig: async () => ({
           ts: "export type SchemaExt = '.ts';\n",

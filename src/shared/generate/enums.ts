@@ -1,9 +1,10 @@
 import { pascalCase } from "es-toolkit";
-import type * as pg from "pg";
+
+import type { QueryResult, SqlQuery } from "../../types/query";
 
 export type EnumData = { [k: string]: string[] };
 
-export async function enumDataForSchema(schemaName: string, queryFn: (q: pg.QueryConfig) => Promise<pg.QueryResult<any>>): Promise<EnumData> {
+export async function enumDataForSchema(schemaName: string, queryFn: (q: SqlQuery) => Promise<QueryResult<any>>): Promise<EnumData> {
   const { rows } = await queryFn({
     text: `--sql
         SELECT

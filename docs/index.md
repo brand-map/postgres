@@ -13,6 +13,7 @@ A split, topic-based documentation set for `@brand-map/postgres`.
 
 ## Core Querying
 
+- [Database Clients (pg and Bun SQL)](/database-clients)
 - [SQL And Fragments](/sql-and-fragments)
 - [Joins And Shortcut Functions](/joins-and-shortcuts)
 - [Transactions](/transactions)

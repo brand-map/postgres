@@ -7,8 +7,10 @@ outline: deep
 Examples below use the runtime entrypoint:
 
 ```ts
-import * as db from "@brand-map/postgres/db";
+import * as db from "@brand-map/postgres/pg";
 ```
+
+`run(...)` accepts either a `pg` queryable (`Pool`/`Client`) or Bun SQL (`new SQL(...)`).
 
 ## Insert
 
@@ -19,9 +21,11 @@ const [author] = await db.insert("authors", { name: "Ursula K. Le Guin" }).run(p
 ## Select
 
 ```ts
-const authors = await db.select("authors", db.all, {
-  order: { by: "id", direction: "ASC" },
-}).run(pool);
+const authors = await db
+  .select("authors", db.all, {
+    order: { by: "id", direction: "ASC" },
+  })
+  .run(pool);
 ```
 
 ## Update
@@ -33,8 +37,8 @@ const updated = await db.update("authors", { name: "U. K. Le Guin" }, { id: 1 })
 ## Transaction
 
 ```ts
-await db.serializable(pool, async (txn) => {
-  await db.insert("auditLog", { message: "transaction started" }).run(txn);
+await db.serializable(pool, async (transactionClient) => {
+  await db.insert("auditLog", { message: "transaction started" }).run(transactionClient);
 });
 ```
 

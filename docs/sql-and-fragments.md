@@ -245,6 +245,8 @@ You can [interpolate them](#sql-template-strings) into other `sql` tagged templa
 
 The `prepared` function causes a `name` property to be added to the compiled SQL query object that's passed to `pg`, and this [instructs Postgres to treat it as a prepared statement](https://node-postgres.com/features/queries#prepared-statements). You can specify a prepared statement name as the function's argument, or let it default to `"_brand_map_postgres_prepared_N"` (where N is a sequence number). This name appears in the Postgres logs.
 
+When using Bun SQL, query text/values are still executed correctly, but this `name` property is not used.
+
 `core.ts run = async (queryable: Queryable, force = false): Promise<RunResult> `
 
 #### `async run(queryable: Queryable, force = false): Promise<RunResult>`
@@ -253,11 +255,11 @@ The `run` function compiles, executes, and returns the transformed result of the
 
 Taking that one step at a time:
 
-1. First, [the `compile` function](#compile-sqlquery) is called, recursively compiling this `SQLFragment` and its interpolated values into a `{ text: '', values: [] }` query that can be passed straight to the `pg` module. If a `queryListener` function [has been configured](/runtime-configuration#run-time-configuration), it is called with the query as its argument now.
+1. First, [the `compile` function](#compile-sqlquery) is called, recursively compiling this `SQLFragment` and its interpolated values into a `{ text: '', values: [] }` query. If a `queryListener` function [has been configured](/runtime-configuration#run-time-configuration), it is called with the query as its argument now.
 
-2. Next, the compiled SQL query is executed against the supplied `Queryable`, which is defined as a `pg.Pool` or `pg.ClientBase` (this definition also covers the `TxnClient` provided by the [`transaction` helper function](/transactions#transaction)).
+2. Next, the compiled SQL query is executed against the supplied `Queryable`, which can be `pg` queryables or Bun SQL clients (including `TransactionClient` values provided by the [`transaction` helper function](/transactions#transaction)).
 
-3. Finally, the result returned from `pg` is fed through this `SQLFragment`'s [`runResultTransform()`](#runresulttransform-qr-pgqueryresult--any) function, whose default implementation simply returns the `rows` property of the result. If a `resultListener` function [has been configured](/runtime-configuration#run-time-configuration), it is called with the transformed result as its argument now.
+3. Finally, the query result is fed through this `SQLFragment`'s [`runResultTransform()`](#runresulttransform-qr-queryresult--any) function, whose default implementation simply returns the `rows` property. If a `resultListener` function [has been configured](/runtime-configuration#run-time-configuration), it is called with the transformed result as its argument now.
 
 Examples of the `run` function are scattered throughout this documentation.
 
@@ -267,7 +269,7 @@ The `force` parameter is relevant only if this `SQLFragment` has been marked as 
 
 #### `compile(): SQLQuery`
 
-The `compile` function recursively transforms this `SQLFragment` and its interpolated values into a `SQLQuery` object (`{ text: string; values: any[]; }`) that can be passed straight to the `pg` module. It is called without arguments (the arguments it can take are for internal use).
+The `compile` function recursively transforms this `SQLFragment` and its interpolated values into a `SQLQuery` object (`{ text: string; values: any[]; }`) that can be executed by a supported queryable. It is called without arguments (the arguments it can take are for internal use).
 
 For example:
 
@@ -282,30 +284,29 @@ console.log(compiled);
 
 You may never need this function. Use it if and when you want to see the SQL that would be executed by the `run` function, without in fact executing it.
 
-=> core.ts runResultTransform: (qr: pg.QueryResult) => any = qr => qr.rows;
+=> core.ts runResultTransform: (qr: QueryResult) => any = qr => qr.rows;
 
-#### `runResultTransform: (qr: pg.QueryResult) => any`
+#### `runResultTransform: (qr: QueryResult) => any`
 
-When you call `run`, the function stored in this property is applied to the `QueryResult` object returned by `pg`, in order to produce the result that the `run` function ultimately returns.
+When you call `run`, the function stored in this property is applied to the query result object, in order to produce the result that the `run` function ultimately returns.
 
 By default, the `QueryResult`’s `rows` property (which is an array) is returned: that is, the default implementation is just `qr => qr.rows`. However, the [shortcut functions](/joins-and-shortcuts#shortcut-functions-and-lateral-joins) supply their own `runResultTransform` implementations in order to match their declared `RunResult` types.
 
 Generally you will not need to call this function directly, but there may be cases where you want to assign a new function to replace the default implementation.
 
-For example, imagine we wanted to create a function returning a query that, when run, returns the current database timestamp directly as a `Date`. We could do so like this:
+For example, imagine we wanted to create a function returning a query that, when run, returns the current database timestamp as a string:
 
 ```typescript
 function dbNowQuery() {
-  const query = db.sql<never, Date>`SELECT now()`;
+  const query = db.sql<never, string>`SELECT now()::text AS now`;
   query.runResultTransform = (qr) => qr.rows[0].now;
   return query;
 }
 
 const dbNow = await dbNowQuery().run(pool);
-// dbNow is a Date: the result you can toggle below has come via JSON.stringify
+// dbNow is a string
 ```
 
-Note that the `RunResult` type variable on the `sql` template function (in this case, `Date`) must reflect the type of the _transformed_ result, not what comes straight back from `pg` (which in this case is roughly `{ rows: [{ now: Date }] }`).
+Note that the `RunResult` type variable on the `sql` template function (in this case, `string`) must reflect the type of the _transformed_ result, not what comes straight back from the database driver.
 
 If a `SQLFragment` does not have `run` called on it directly — for example, if it is instead interpolated into another `SQLFragment`, or given as the value of the `lateral` option to the `select` shortcut — then the `runResultTransform` function is never applied.
-

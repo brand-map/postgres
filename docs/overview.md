@@ -184,8 +184,8 @@ Transactions are where I've found traditional ORMs like TypeORM and Sequelize mo
 @brand-map/postgres also offers simple transaction helpers that handle issuing a SQL `ROLLBACK` on error, releasing the database client in a `finally` clause, and automatically retrying queries in case of serialization failures. There's one for each isolation level (`SERIALIZABLE`, `REPEATABLE READ`, and so on), and they look like this:
 
 ```typescript:noresult
-const result = await db.serializable(pool, async txnClient => {
-  /* queries here use txnClient instead of pool */
+const result = await db.serializable(pool, async transactionClient => {
+  /* queries here use transactionClient instead of pool */
 });
 ```
 
@@ -203,10 +203,10 @@ We can use the transaction helpers like so:
 const [accountA, accountB] = await db.insert("bankAccounts", [{ balance: 50 }, { balance: 50 }]).run(pool);
 
 const transferMoney = (sendingAccountId: number, receivingAccountId: number, amount: number) =>
-  db.serializable(pool, (txnClient) =>
+  db.serializable(pool, (transactionClient) =>
     Promise.all([
-      db.update("bankAccounts", { balance: db.sql`${db.self} - ${db.param(amount)}` }, { id: sendingAccountId }).run(txnClient),
-      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(txnClient),
+      db.update("bankAccounts", { balance: db.sql`${db.self} - ${db.param(amount)}` }, { id: sendingAccountId }).run(transactionClient),
+      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(transactionClient),
     ]),
   );
 
@@ -217,7 +217,7 @@ try {
 }
 ```
 
-Finally, @brand-map/postgres provides a set of hierarchical isolation types so that, for example, if you type a `txnClient` argument to a function as `TxnClientForRepeatableRead`, you can call it with `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
+Finally, @brand-map/postgres provides a set of hierarchical isolation types so that, for example, if you type a `transactionClient` argument to a function as `TxnClientForRepeatableRead`, you can call it with `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
 
 [Tell me more about the transaction functions »](/transactions#transaction)
 
@@ -237,7 +237,9 @@ If it interests you, there's a whole other [repository about how @brand-map/post
 
 @brand-map/postgres doesn't handle schema migrations. Other tools can help you with this: check out [dbmate](https://github.com/amacneil/dbmate), for instance.
 
-It also doesn't manage the connection pool for you, as some ORMs do — mainly because the `pg` module makes this so easy. For example, my `pgPool.ts` looks something like this:
+It also doesn't manage database clients for you, as some ORMs do. You can use either `pg` or Bun SQL directly.
+
+For `pg`, a setup might look like this:
 
 ```typescript:norun
 import pg from 'pg';
@@ -248,5 +250,14 @@ pool.on('error', err => console.error(err));  // don't let a pg restart kill you
 export default pool;
 ```
 
-Finally, it won't tell you how to structure your code: @brand-map/postgres doesn't deal in the 'model' classes beloved of traditional ORMs, just (fully-typed) [POJOs](https://twitter.com/_ericelliott/status/831965087749533698?lang=en).
+For Bun SQL, a similar setup is:
 
+```typescript:norun
+import { SQL } from "bun";
+
+const sql = new SQL(process.env.DATABASE_URL!);
+
+export default sql;
+```
+
+Finally, it won't tell you how to structure your code: @brand-map/postgres doesn't deal in the 'model' classes beloved of traditional ORMs, just (fully-typed) [POJOs](https://twitter.com/_ericelliott/status/831965087749533698?lang=en).

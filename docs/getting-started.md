@@ -22,16 +22,26 @@ Add a top-level file `brand-map-postgres.config.json` to your project. Here's an
 
 ```json
 {
-  "db": {
+  "client": "pg",
+  "config": {
     "connectionString": "postgresql://localhost/example_db"
   },
   "outDir": "./src"
 }
 ```
 
+For runtime usage (`.run(...)` and transactions) with `pg` and Bun SQL, see [Database Clients](/database-clients).
+
 These are available top-level keys, all of which are optional:
 
-- `"db"` gives Postgres connection details. You can provide [anything that you'd pass](https://node-postgres.com/features/connecting/#Programmatic) to `new pg.Pool(/* ... */)` here.
+- `"client"` selects the generator client.
+  Use `"pg"` for `@brand-map/postgres/pg` and `"bun"` for `@brand-map/postgres/bun`.
+
+- `"config"` gives connection details for `"client": "pg"`.
+  Provide anything accepted by [`new pg.Pool(...)`](https://node-postgres.com/features/connecting/#Programmatic).
+
+- `"options"` gives connection details for `"client": "bun"`.
+  Provide a connection string or Bun SQL options accepted by `new SQL(...)`.
 
 - `"outDir"` defines where generated files are written, relative to the project root. If not specified, it defaults to the project root, i.e. `"."`.
 
@@ -108,13 +118,15 @@ Wildcard table options have lower precedence than named table options. The defau
 
 - `"schemaJSDoc"` is a boolean that turns JSDoc comments for each column in the generated schema on (the default) or off. JSDoc comments enable per-column VS Code pop-ups giving details of Postgres data type, default value and so on. They also make the schema file longer and less readable.
 
-- `"customJSONParsingForLargeNumbers"` is a boolean that changes the types for `bigint`/`int8` and `numeric`/`decimal` values to reflect the use of [custom JSON parsing to maintain precision](/runtime-configuration#casting-parameters-to-json).
+- `"customJsonParsingForLargeNumbers"` is a boolean that changes the types for `bigint`/`int8` and `numeric`/`decimal` values to reflect the use of [custom JSON parsing to maintain precision](/runtime-configuration#casting-parameters-to-json).
 
 In summary, the expected structure is defined like so:
 
 ```typescript:norun
 export interface OptionalConfig {
-  db: pg.ClientConfig;
+  client: 'pg' | 'bun';
+  config?: string | URL | Record<string, unknown>;
+  options?: string | Record<string, unknown>;
   outDir: string;
   outExt: string;
   schemas: SchemaRules;
@@ -124,7 +136,7 @@ export interface OptionalConfig {
   customTypesTransform: 'PgMy_type' | 'my_type' | 'PgMyType' | ((s: string) => string);
   columnOptions: ColumnOptions;
   schemaJSDoc: boolean;
-  customJSONParsingForLargeNumbers: boolean;
+  customJsonParsingForLargeNumbers: boolean;
 }
 
 interface SchemaRules {
@@ -150,10 +162,18 @@ All values in `brand-map-postgres.config.json` can have environment variables (N
 
 This is likely most useful for the database connection details. For example, on Heroku you might configure your database as:
 
+For `client: "pg"`:
+
 ```json
-"db": {
+"config": {
   "connectionString": "{{DATABASE_URL}}"
 }
+```
+
+For `client: "bun"`:
+
+```json
+"options": "{{DATABASE_URL}}"
 ```
 
 #### ESLint / tslint
@@ -172,13 +192,27 @@ These files must be included in your TypeScript compilation. That may happen for
 
 #### Programmatic generation
 
-As an alternative to the command line tool, it's also possible to generate the schema programmatically by importing from `@brand-map/postgres/generate`. For example:
+As an alternative to the command line tool, it's also possible to generate the schema programmatically by importing from `@brand-map/postgres/pg`. For example:
 
 ```typescript:norun
-import * as zg from '@brand-map/postgres/generate';
+import * as zg from '@brand-map/postgres/pg';
 
-const zapCfg: zg.Config = { db: { connectionString: 'postgres://localhost/mydb' } };
+const zapCfg: zg.Config = {
+  client: 'pg',
+  config: { connectionString: 'postgres://localhost/mydb' },
+};
 await zg.generate(zapCfg);
+```
+
+Using Bun SQL for generation:
+
+```typescript:norun
+import * as bz from '@brand-map/postgres/bun';
+
+await bz.generate({
+  client: 'bun',
+  options: process.env.DATABASE_URL!,
+});
 ```
 
 Call the `generate` method with an object structured exactly the same as `brand-map-postgres.config.json`, documented above, with the following two exceptions:
@@ -225,7 +259,13 @@ export interface PgMySpecialJsonb {
 In your code, get the core library like so:
 
 ```typescript:norun
-import * as db from '@brand-map/postgres/db';
+import * as db from '@brand-map/postgres/pg';
+```
+
+For Bun SQL-specific runtime APIs:
+
+```typescript:norun
+import * as db from '@brand-map/postgres/bun';
 ```
 
 ESM wrappers are provided, so the import should work the same whether your project is set to use the CommonJS or ESM module specs.
@@ -244,5 +284,4 @@ To import any user-defined or domain types:
 import type * as c from '@brand-map/postgres/custom';
 ```
 
-The paths `@brand-map/postgres/db` and `@brand-map/postgres/generate` point to real folders in `node_modules`. Although they look like file paths, `@brand-map/postgres/schema` and `@brand-map/postgres/custom` are ambient modules declared in generated files in your source tree: `brand-map-postgres.schema.d.ts` and `custom/*.d.ts`.
-
+The paths `@brand-map/postgres/pg`, `@brand-map/postgres/pg`, `@brand-map/postgres/bun`, and `@brand-map/postgres/bun` point to real folders in `node_modules`. Although they look like file paths, `@brand-map/postgres/schema` and `@brand-map/postgres/custom` are ambient modules declared in generated files in your source tree: `brand-map-postgres.schema.d.ts` and `custom/*.d.ts`.

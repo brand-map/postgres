@@ -797,23 +797,7 @@ Since the shortcut functions build on Postgres' JSON support, their return value
 
 `JSONSelectable`s differ from `Selectable`s in that some data types that would normally be converted to native JavaScript representations by `pg` are instead returned in the string format produced by the Postgres `to_json` function. Namely:
 
-- Since JSON has no native date representation, columns returned as `Date` values in a `Selectable` are returned as string values in a `JSONSelectable`. These strings are assigned appropriate template types: `DateString`, `TimeString`, `TimeTzString`, `TimestampString` and `TimestampTzString`. For example, `DateString` is defined as `` `${number}-${number}-${number}` ``. Two helper functions, `toDate()` and `toString()`, are provided to convert between JavaScript's `Date` and some of these string representations, while maintaining nullability and forcing explicit treatment of timezones. For example:
-
-```typescript
-const d1 = db.toDate("2012-06-01T12:34:00Z"), // TimestampTzString -> Date
-  d2 = db.toDate("2012-06-01T00:00", "local"), // TimestampString (Europe/London) -> Date
-  d3 = db.toDate("2012-06-01", "UTC"), // DateString (UTC) -> Date
-  d4 = db.toDate(Math.random() < 0.5 ? null : "2012-10-09T02:34Z"); // TimestampTzString | null -> Date | null;
-
-console.log({ d1, d2, d3, d4 });
-
-const s1 = db.toString(d1, "timestamptz"), // Date -> TimestampTzString
-  s2 = db.toString(d2, "timestamp:local"), // Date -> TimestampString (Europe/London)
-  s3 = db.toString(d3, "date:UTC"), // Date -> DateString (UTC)
-  s4 = db.toString(Math.random() < 0.5 ? null : d4, "timestamptz"); // Date | null -> TimestampTzString | null
-
-console.log({ s1, s2, s3, s4 });
-```
+- Date/time columns are returned as plain strings in both `Selectable` and `JSONSelectable` results.
 
 - `bigint`/`int8` and `numeric`/`decimal` columns are returned as string values (of template string type `` `${number}` ``) in a `Selectable`, but as numbers in a `JSONSelectable`. This point is discussed in the next section.
 
@@ -821,26 +805,7 @@ console.log({ s1, s2, s3, s4 });
 
 - Range types such as `numrange` also get template string types. (Unfortunately, unlike standalone time/date types, which are always returned in ISO8601 format in JSON, time/date bounds in ranges are formatted according to Postgres' current `DateStyle` setting, so can't be typed more specifically than `string`).
 
-If you're using a time/date library such as [Luxon](https://moment.github.io/luxon/) or [Moment](https://momentjs.com/), use @brand-map/postgres' `strict` function to roll your own time/date conversions, returning (and inferring) `null` on `null` input. For example:
-
-```typescript
-import { DateTime } from "luxon";
-import * as db from "@brand-map/postgres/db";
-
-// conversions to and from Luxon's DateTime
-export const toDateTime = db.strict<db.TimestampTzString, DateTime>(DateTime.fromISO);
-export const toTsTzString = db.strict((d: DateTime) => d.toISO() as db.TimestampTzString);
-
-// db.strict handles null input both for type inference and at runtime
-const tsTz = "1989-11-09T18:53:00.000+01:00" as db.TimestampTzString;
-const tsTzOrNull = Math.random() < 0.5 ? tsTz : null;
-const dt1 = toDateTime(null); // dt1: null
-const dt2 = toDateTime(tsTz); // dt2: DateTime
-const dt3 = toDateTime(tsTzOrNull); // dt3: DateTime | null
-const alsoTsTz = toTsTzString(dt2);
-
-console.log({ dt1, dt2, dt3, alsoTsTz });
-```
+If you're using a time/date library such as [Luxon](https://moment.github.io/luxon/) or [Moment](https://momentjs.com/), parse and format these strings in your own app layer.
 
 ##### Custom JSON parsing for `bigint` and `numeric`
 
@@ -850,7 +815,7 @@ For this reason, if your database includes any `bigint`/`int8` or `numeric`/`dec
 
 To address this issue:
 
-- Set `"customJSONParsingForLargeNumbers": true` in the schema-generation config in `brand-map-postgres.config.json`. This switches the TypeScript types for these columns in `JSONSelectable`s from `number` to `` number | `${number}` ``. It also suppresses the warning.
+- Set `"customJsonParsingForLargeNumbers": true` in the schema-generation config in `brand-map-postgres.config.json`. This switches the TypeScript types for these columns in `JSONSelectable`s from `number` to `` number | `${number}` ``. It also suppresses the warning.
 
 - Be sure to call `db.enableCustomJSONParsingForLargeNumbers(pg)` in your code before running any queries. This switches node-postgres's JSON parsing to use the [json-custom-numbers](https://github.com/jawj/json-custom-numbers) package, and return as strings any values that aren't representable as a JS number.
 
@@ -859,12 +824,12 @@ When using these `` number | `${number}` `` values in code, you will likely want
 Here's an example:
 
 ```typescript
-import * as db from "@brand-map/postgres/db";
+import * as db from "@brand-map/postgres/pg";
 import pool from "./pgPool.js";
 import pg from "pg";
 import Big from "big.js"; // third-party arbitrary-precision library
 
-// note: set `"customJSONParsingForLargeNumbers": true` in brand-map-postgres.config.json
+// note: set `"customJsonParsingForLargeNumbers": true` in brand-map-postgres.config.json
 
 db.enableCustomJSONParsingForLargeNumbers(pg);
 
@@ -902,4 +867,3 @@ await pool.end();
 ```
 
 => transaction.ts export async function transaction<T, M extends IsolationLevel>(
-

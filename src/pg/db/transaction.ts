@@ -1,9 +1,9 @@
 import * as pg from "pg";
 
-import { getConfig } from "../shared/db/config";
-import { sql, raw } from "../shared/db/core";
-import { isDatabaseError } from "../shared/db/pg-errors";
-import { wait } from "../shared/db/utils";
+import { getConfig } from "../../shared/db/config";
+import { sql, raw } from "../../shared/db/core";
+import { isDatabaseError } from "../../shared/db/pg-errors";
+import { wait } from "../../shared/db/utils";
 
 // these are the only meaningful values in Postgres:
 // https://www.postgresql.org/docs/18/sql-set-transaction.html

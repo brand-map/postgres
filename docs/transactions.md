@@ -13,19 +13,19 @@ export enum IsolationLevel {
   Serializable = "SERIALIZABLE",
   RepeatableRead = "REPEATABLE READ",
   ReadCommitted = "READ COMMITTED",
-  SerializableRO = "SERIALIZABLE, READ ONLY",
-  RepeatableReadRO = "REPEATABLE READ, READ ONLY",
-  ReadCommittedRO = "READ COMMITTED, READ ONLY",
-  SerializableRODeferrable = "SERIALIZABLE, READ ONLY, DEFERRABLE"
+  SerializableReadOnly = "SERIALIZABLE, READ ONLY",
+  RepeatableReadReadOnly = "REPEATABLE READ, READ ONLY",
+  ReadCommittedReadOnly = "READ COMMITTED, READ ONLY",
+  SerializableReadOnlyDeferrable = "SERIALIZABLE, READ ONLY, DEFERRABLE"
 }
 export async function transaction<T, M extends IsolationLevel>(
-  txnClientOrQueryable: Queryable | TxnClient<IsolationSatisfying<M>>,
+  transactionClientOrQueryable: Queryable | TransactionClient<IsolationSatisfying<M>>,
   isolationLevel: M,
-  callback: (client: TxnClient<IsolationSatisfying<M>>) => Promise<T>
+  callback: (client: TransactionClient<IsolationSatisfying<M>>) => Promise<T>
 ): Promise<T>
 ```
 
-The `transaction` helper takes a `pg.Pool` or already-connected `pg.Client` instance, an isolation mode, and an `async` callback function (it can also take an existing `TxnClient` instead, but [we'll cover that later](#transaction-sharing)). It then proceeds as follows:
+The `transaction` helper takes a `pg.Pool` / connected `pg.Client` or a Bun SQL client (`new SQL(...)`), an isolation mode, and an `async` callback function (it can also take an existing `TransactionClient` instead, but [we'll cover that later](#transaction-sharing)). It then proceeds as follows:
 
 - Issue a `BEGIN TRANSACTION`.
 - Call the callback, passing it a database client (checked out from the pool, if that's what was given).
@@ -74,16 +74,16 @@ The important business logic is that there must always be _at least one doctor_ 
 
 ```typescript
 const requestLeaveForDoctorOnDay = async (doctorId: number, day: db.DateString) =>
-  db.transaction(pool, db.IsolationLevel.Serializable, async (txnClient) => {
+  db.transaction(pool, db.IsolationLevel.Serializable, async (transactionClient) => {
     const otherDoctorsOnShift = await db
       .count("shifts", {
         doctorId: db.sql`${db.self} != ${db.param(doctorId)}`,
         day,
       })
-      .run(txnClient);
+      .run(transactionClient);
     if (otherDoctorsOnShift === 0) return false;
 
-    await db.deletes("shifts", { day, doctorId }).run(txnClient);
+    await db.deletes("shifts", { day, doctorId }).run(transactionClient);
     return true;
   });
 
@@ -105,13 +105,13 @@ Expanding the results, we see that one of the requests is retried and then fails
 To help save keystrokes and line noise, there is a family of transaction shortcut functions named after each isolation mode. For example, instead of:
 
 ```typescript:noresult
-const result = await db.transaction(pool, db.IsolationLevel.Serializable, async txnClient => { /* ... */ });
+const result = await db.transaction(pool, db.IsolationLevel.Serializable, async transactionClient => { /* ... */ });
 ```
 
 You can use the equivalent:
 
 ```typescript:noresult
-const result = await db.serializable(pool, async txnClient => { /* ... */ });
+const result = await db.serializable(pool, async transactionClient => { /* ... */ });
 ```
 
 #### `IsolationSatisfying` generic
@@ -123,12 +123,12 @@ export type IsolationSatisfying<T extends IsolationLevel> = {
   /* ... */
 }[T];
 
-export type TxnClientForSerializable = TxnClient<IsolationSatisfying<IsolationLevel.Serializable>>;
-export type TxnClientForRepeatableRead = TxnClient<IsolationSatisfying<IsolationLevel.RepeatableRead>>;
+export type TxnClientForSerializable = TransactionClient<IsolationSatisfying<IsolationLevel.Serializable>>;
+export type TxnClientForRepeatableRead = TransactionClient<IsolationSatisfying<IsolationLevel.RepeatableRead>>;
 /* ... */
 ```
 
-If you find yourself passing transaction clients around, you may find the `IsolationSatisfying` generic useful. For example, if you type a `txnClient` argument to a function as `IsolationSatisfying<IsolationLevel.RepeatableRead>` — probably by using the alias type `TxnClientForRepeatableRead` — you can call it with a client having `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
+If you find yourself passing transaction clients around, you may find the `IsolationSatisfying` generic useful. For example, if you type a `transactionClient` argument to a function as `IsolationSatisfying<IsolationLevel.RepeatableRead>` — probably by using the alias type `TxnClientForRepeatableRead` — you can call it with a client having `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
 
 #### Transaction sharing
 
@@ -138,7 +138,7 @@ Recall the transaction example we began with: a [money transfer between two bank
 
 But what if we want to combine some other operations within the same database transaction? Say we want to make two transfers, A to B and A to C, or have both fail. The `transferMoney` function we originally wrote uses a transaction helper to `BEGIN` and `COMMIT` its own transaction every time, so we can't just call it twice.
 
-For this reason, the `transaction` function — and its isolation-level shortcuts — can be passed either a plain `pg.Pool`/`pg.Client`, in which case they manage a transaction as decribed above, or an existing `TxnClient`. If they're passed an existing `TxnClient`, they do no more than call the provided callback function with the provided client on the spot.
+For this reason, the `transaction` function — and its isolation-level shortcuts — can be passed either a plain queryable client (`pg.Pool`, `pg.Client`, or Bun SQL), in which case they manage a transaction as decribed above, or an existing `TransactionClient`. If they're passed an existing `TransactionClient`, they do no more than call the provided callback function with the provided client on the spot.
 
 Let's see how this helps. We'll modify the `transferMoney` function to take a pool or transaction client as its last argument, and pass that straight to the `serializable` transaction function. (Note that we _could_ give this last argument a default value of `pool`, but I find that way it's too easy to accidentally issue queries outside of transactions).
 
@@ -148,10 +148,10 @@ With that done, we can now use `transferMoney` both for individual transfers, wi
 const [accountA, accountB, accountC] = await db.insert("bankAccounts", [{ balance: 50 }, { balance: 50 }, { balance: 50 }]).run(pool);
 
 const transferMoney = (sendingAccountId: number, receivingAccountId: number, amount: number, txnClientOrPool: typeof pool | db.TxnClientForSerializable) =>
-  db.serializable(txnClientOrPool, (txnClient) =>
+  db.serializable(txnClientOrPool, (transactionClient) =>
     Promise.all([
-      db.update("bankAccounts", { balance: db.sql`${db.self} - ${db.param(amount)}` }, { id: sendingAccountId }).run(txnClient),
-      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(txnClient),
+      db.update("bankAccounts", { balance: db.sql`${db.self} - ${db.param(amount)}` }, { id: sendingAccountId }).run(transactionClient),
+      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(transactionClient),
     ]),
   );
 
@@ -164,7 +164,9 @@ try {
 
 // multiple transfers, passing in an external transaction
 try {
-  await db.serializable(pool, (txnClient) => Promise.all([transferMoney(accountA.id, accountB.id, 40, txnClient), transferMoney(accountA.id, accountC.id, 40, txnClient)]));
+  await db.serializable(pool, (transactionClient) =>
+    Promise.all([transferMoney(accountA.id, accountB.id, 40, transactionClient), transferMoney(accountA.id, accountC.id, 40, transactionClient)]),
+  );
 } catch (err: any) {
   console.log(err.message, "/", err.detail);
 }

@@ -9,6 +9,7 @@ export default defineConfig({
     nav: [
       { text: "Overview", link: "/overview" },
       { text: "Getting Started", link: "/getting-started" },
+      { text: "Clients", link: "/database-clients" },
       { text: "SQL Core", link: "/sql-and-fragments" },
       { text: "Joins", link: "/joins-and-shortcuts" },
       { text: "Transactions", link: "/transactions" },
@@ -21,6 +22,7 @@ export default defineConfig({
           { text: "Docs Home", link: "/" },
           { text: "Overview", link: "/overview" },
           { text: "Getting Started", link: "/getting-started" },
+          { text: "Database Clients", link: "/database-clients" },
           { text: "About", link: "/about" },
         ],
       },

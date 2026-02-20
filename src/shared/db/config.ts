@@ -1,8 +1,6 @@
-export interface SqlQuery {
-  text: string;
-  values: any[];
-  name?: string;
-}
+import type { SqlQuery } from "../../types/query";
+
+export type { SqlQuery };
 
 export interface Config {
   transactionAttemptsMax: number;

@@ -1,4 +1,4 @@
-// this file exists only to suppress type errors when compiling the files in src/db
+// this file exists only to suppress type errors when compiling local source files
 
 export type Table = string;
 export type Column = string;
