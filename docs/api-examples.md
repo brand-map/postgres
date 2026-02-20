@@ -4,52 +4,42 @@ outline: deep
 
 # Runtime API Examples
 
-This page demonstrates usage of some of the runtime APIs provided by VitePress.
+Examples below use the runtime entrypoint:
 
-The main `useData()` API can be used to access site, theme, and page data for the current page. It works in both `.md` and `.vue` files:
-
-```md
-<script setup>
-import { useData } from 'vitepress'
-
-const { theme, page, frontmatter } = useData()
-</script>
-
-## Results
-
-### Theme Data
-
-<pre>{{ theme }}</pre>
-
-### Page Data
-
-<pre>{{ page }}</pre>
-
-### Page Frontmatter
-
-<pre>{{ frontmatter }}</pre>
+```ts
+import * as db from "@brand-map/postgres/db";
 ```
 
-<script setup>
-import { useData } from 'vitepress'
+## Insert
 
-const { site, theme, page, frontmatter } = useData()
-</script>
+```ts
+const [author] = await db.insert("authors", { name: "Ursula K. Le Guin" }).run(pool);
+```
 
-## Results
+## Select
 
-### Theme Data
+```ts
+const authors = await db.select("authors", db.all, {
+  order: { by: "id", direction: "ASC" },
+}).run(pool);
+```
 
-<pre>{{ theme }}</pre>
+## Update
 
-### Page Data
+```ts
+const updated = await db.update("authors", { name: "U. K. Le Guin" }, { id: 1 }).run(pool);
+```
 
-<pre>{{ page }}</pre>
+## Transaction
 
-### Page Frontmatter
+```ts
+await db.serializable(pool, async (txn) => {
+  await db.insert("auditLog", { message: "transaction started" }).run(txn);
+});
+```
 
-<pre>{{ frontmatter }}</pre>
+## Raw SQL Fragment
 
-## More
-
-Check out the documentation for the [full list of runtime APIs](https://vitepress.dev/reference/runtime-api#usedata).
+```ts
+const rows = await db.sql`SELECT now() AS ts`.run(pool);
+```

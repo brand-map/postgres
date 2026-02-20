@@ -4,8 +4,19 @@
 
 ### »&nbsp; [Go to documentation](https://brand-map.dev/docs/postgres)
 
-this repo is a shameless fork of [Zapatos](https://github.com/jawj/zapatos)
+## Quick Start (Bun)
+
+```bash
+bun add @brand-map/postgres
+```
+
+Create `brand-map-postgres.config.json`, then generate types:
+
+```bash
+bunx @brand-map/postgres
+```
+
+This project is a fork of [Zapatos](https://github.com/jawj/zapatos).
 
 <!-- 2026 Brand-Map Team. Released under the MIT licence. -->
-
 

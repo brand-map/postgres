@@ -9,6 +9,9 @@
     "typescript"
   ],
   "license": "MIT",
+  "bin": {
+    "brand-map-postgres": "./dist/generate/cli.js"
+  },
   "exports": {
     "./db": "./src/db/exports.ts",
     "./generate": "./src/generate/exports.ts"
@@ -18,9 +21,10 @@
   },
   "scripts": {
     "build": "bunx tsc",
-    "postinstall": "bun --eval \"console.warn('>>> \\u001b[1;@brand-map/postgres was installed or upgraded. Please (re-)run \\u001b[1;32mnpx @brand-map/postgres\\u001b[1;33m.\\u001b[0m <<<\\u000a')\"",
-    "version": "pm run build",
-    "postversion": "git push && git push --tags && npm publish",
+    "postinstall": "bun --eval \"console.warn('>>> @brand-map/postgres was installed or upgraded. Please (re-)run bunx @brand-map/postgres. <<<\\\\n')\"",
+    "version": "bun run build",
+    "prepack": "bun run build",
+    "postversion": "git push && git push --tags && bun publish",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

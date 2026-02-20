@@ -1,85 +1,52 @@
-# Markdown Extension Examples
+---
+outline: deep
+---
 
-This page demonstrates some of the built-in markdown extensions provided by VitePress.
+# Generator Config Examples
 
-## Syntax Highlighting
+This page shows practical `brand-map-postgres.config.json` examples for schema generation.
 
-VitePress provides Syntax Highlighting powered by [Shiki](https://github.com/shikijs/shiki), with additional features like line-highlighting:
+## Minimal Config
 
-**Input**
-
-````md
-```js{4}
-export default {
-  data () {
-    return {
-      msg: 'Highlighted!'
-    }
-  }
-}
-```
-````
-
-**Output**
-
-```js{4}
-export default {
-  data () {
-    return {
-      msg: 'Highlighted!'
-    }
+```json
+{
+  "db": {
+    "connectionString": "{{DATABASE_URL}}"
   }
 }
 ```
 
-## Custom Containers
+## Multi-Schema Config
 
-**Input**
-
-```md
-::: info
-This is an info box.
-:::
-
-::: tip
-This is a tip.
-:::
-
-::: warning
-This is a warning.
-:::
-
-::: danger
-This is a dangerous warning.
-:::
-
-::: details
-This is a details block.
-:::
+```json
+{
+  "db": {
+    "connectionString": "{{DATABASE_URL}}"
+  },
+  "outDir": "./src/generated",
+  "schemas": {
+    "public": {
+      "include": "*",
+      "exclude": []
+    },
+    "analytics": {
+      "include": "*",
+      "exclude": [
+        "internal_rollups"
+      ]
+    }
+  },
+  "unprefixedSchema": "public"
+}
 ```
 
-**Output**
+## Recommended Run Command
 
-::: info
-This is an info box.
-:::
+```bash
+bunx @brand-map/postgres
+```
 
-::: tip
-This is a tip.
-:::
+## Generated Files
 
-::: warning
-This is a warning.
-:::
-
-::: danger
-This is a dangerous warning.
-:::
-
-::: details
-This is a details block.
-:::
-
-## More
-
-Check out the documentation for the [full list of markdown extensions](https://vitepress.dev/guide/markdown).
+- `brand-map-postgres.schema.d.ts`
+- `custom/*.d.ts` (for custom/domain type declarations)
