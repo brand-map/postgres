@@ -2,90 +2,28 @@
 outline: deep
 ---
 
-# Database Clients
+# Client Matrix
 
-Use the package path that matches your runtime:
+Use the package path that matches your runtime and task.
 
-- `@brand-map/postgres/pg` and `@brand-map/postgres/pg` for `pg`
-- `@brand-map/postgres/bun` and `@brand-map/postgres/bun` for Bun SQL
+## Runtime APIs
 
-You can also import Bun namespaces from `@brand-map/postgres/bun`.
+- Bun SQL runtime API: `@brand-map/postgres/bun`
+- `pg` runtime API: `@brand-map/postgres/pg`
 
-## Runtime Queries
+## Generation APIs
 
-### pg runtime path
+- Bun SQL generator API: `@brand-map/postgres/bun/generate`
+- `pg` generator API: `@brand-map/postgres/pg/generate`
 
-```ts
-import * as db from "@brand-map/postgres/pg"
-import pg from "pg"
+## Split Docs
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
-await db.select("users", db.all).run(pool)
-```
+- Bun docs: [Bun Overview](/bun/)
+- pg docs: [pg Overview](/pg/)
 
-### Bun SQL runtime path
+## Notes
 
-```ts
-import * as db from "@brand-map/postgres/bun"
-import { SQL } from "bun"
-
-const bunSql = new SQL(process.env.DATABASE_URL!)
-await db.select("users", db.all).run(bunSql)
-```
-
-## Transactions
-
-### pg transaction path
-
-```ts
-import * as db from "@brand-map/postgres/pg"
-
-await db.serializable(pool, async transactionClient => {
-  await db.insert("auditLog", { message: "pg transaction" }).run(transactionClient)
-})
-```
-
-### Bun SQL transaction path
-
-```ts
-import * as db from "@brand-map/postgres/bun"
-
-await db.serializable(bunSql, async transactionClient => {
-  await db.insert("auditLog", { message: "bun sql transaction" }).run(transactionClient)
-})
-```
-
-## Schema Generation
-
-### pg generator path
-
-```ts
-import * as zg from "@brand-map/postgres/pg"
-
-await zg.generate({
-  client: "pg",
-  config: { connectionString: process.env.DATABASE_URL }
-})
-```
-
-### Bun SQL generator path
-
-```ts
-import * as zg from "@brand-map/postgres/bun"
-
-await zg.generate({
-  client: "bun",
-  options: process.env.DATABASE_URL!
-})
-```
-
-Or through the Bun namespace export:
-
-```ts
-import * as bunPg from "@brand-map/postgres/bun"
-
-await bunPg.generate.generate({
-  client: "bun",
-  options: process.env.DATABASE_URL!
-})
-```
+- `@brand-map/postgres` (root path) maps to the Bun runtime API for convenience.
+- Legacy generator aliases are still exported:
+  - `@brand-map/postgres/generate` (Bun generator)
+  - `@brand-map/postgres/generate/pg` (pg generator)

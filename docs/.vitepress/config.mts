@@ -9,7 +9,8 @@ export default defineConfig({
     nav: [
       { text: "Overview", link: "/overview" },
       { text: "Getting Started", link: "/getting-started" },
-      { text: "Clients", link: "/database-clients" },
+      { text: "Bun", link: "/bun/" },
+      { text: "pg", link: "/pg/" },
       { text: "SQL Core", link: "/sql-and-fragments" },
       { text: "Joins", link: "/joins-and-shortcuts" },
       { text: "Transactions", link: "/transactions" }
@@ -17,13 +18,29 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: "Introduction",
+        text: "Start",
         items: [
           { text: "Docs Home", link: "/" },
           { text: "Overview", link: "/overview" },
           { text: "Getting Started", link: "/getting-started" },
-          { text: "Database Clients", link: "/database-clients" },
+          { text: "Client Matrix", link: "/database-clients" },
           { text: "About", link: "/about" }
+        ]
+      },
+      {
+        text: "Bun",
+        items: [
+          { text: "Bun Overview", link: "/bun/" },
+          { text: "Bun Runtime API", link: "/bun/runtime" },
+          { text: "Bun Generation API", link: "/bun/generate" }
+        ]
+      },
+      {
+        text: "pg",
+        items: [
+          { text: "pg Overview", link: "/pg/" },
+          { text: "pg Runtime API", link: "/pg/runtime" },
+          { text: "pg Generation API", link: "/pg/generate" }
         ]
       },
       {

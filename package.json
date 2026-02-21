@@ -13,7 +13,10 @@
   "license": "MIT",
   "exports": {
     ".": "./src/bun/db.ts",
-    "./pg": "./src/pg.ts",
+    "./bun": "./src/bun/db.ts",
+    "./bun/generate": "./src/bun/generate.ts",
+    "./pg": "./src/pg/db.ts",
+    "./pg/generate": "./src/pg/generate.ts",
     "./generate": "./src/bun/generate.ts",
     "./generate/pg": "./src/pg/generate.ts"
   },
@@ -31,6 +34,8 @@
     "test": "bun test",
     "test:integration": "bun test tests/pg/generate.integration.test.ts tests/bun/generate.integration.test.ts",
     "test:pglite": "bun test tests/pg/generate.pglite.integration.test.ts tests/bun/generate.pglite.integration.test.ts",
+    "bench": "BRAND_MAP_POSTGRES_RUN_BENCHMARKS=1 bun test tests/bun/query.benchmark.test.ts --timeout 180000",
+    "bench:quick": "BRAND_MAP_POSTGRES_RUN_BENCHMARKS=1 BRAND_MAP_POSTGRES_BENCH_ITERATIONS=100 BRAND_MAP_POSTGRES_BENCH_WARMUP=20 bun test tests/bun/query.benchmark.test.ts --timeout 180000",
     "version": "bun run build"
   },
   "dependencies": {

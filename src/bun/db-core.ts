@@ -1,5 +1,4 @@
 import type { Updatable, Whereable, Table, Column } from "@brand-map/postgres/schema"
-import type { SQL } from "bun"
 
 import type { QueryResult, SqlQuery } from "../types"
 
@@ -242,6 +241,14 @@ export interface BunSqlQueryable {
   unsafe<T = any[]>(query: string, values?: any[]): Promise<T>
 }
 
+type BunTransactionBrand = {
+  transactionId: number
+}
+
+type BunSqlRunQueryable = BunSqlQueryable & {
+  __bmPostgres?: BunTransactionBrand
+}
+
 export type Queryable = PgQueryable | BunSqlQueryable
 
 export function isPgQueryable(queryable: Queryable): queryable is PgQueryable {
@@ -250,6 +257,11 @@ export function isPgQueryable(queryable: Queryable): queryable is PgQueryable {
 
 export function isBunSqlQueryable(queryable: Queryable): queryable is BunSqlQueryable {
   return typeof (queryable as BunSqlQueryable).unsafe === "function"
+}
+
+function getTransactionId(queryable: BunSqlRunQueryable): number | undefined {
+  const transactionId = queryable.__bmPostgres?.transactionId
+  return typeof transactionId === "number" ? transactionId : undefined
 }
 
 export async function executeQuery(queryable: Queryable, query: SqlQuery): Promise<QueryResult> {
@@ -341,11 +353,10 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
    * @param queryable A database client or pool
    * @param force If true, force this query to hit the DB even if it's marked as a no-op
    */
-  run = async (queryable: SQL, force = false): Promise<RunResult> => {
+  run = async (queryable: BunSqlRunQueryable, force = false): Promise<RunResult> => {
     const query = this.compile()
     const { queryListener, resultListener } = getConfig()
-    // TODO: nested transactions bun SQL
-    const transactionId = queryable.__bmPostgres?.transactionId
+    const transactionId = getTransactionId(queryable)
 
     if (queryListener) {
       queryListener(query, transactionId)

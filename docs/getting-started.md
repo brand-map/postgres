@@ -30,7 +30,10 @@ Add a top-level file `brand-map-postgres.config.json` to your project. Here's an
 }
 ```
 
-For runtime usage (`.run(...)` and transactions) with `pg` and Bun SQL, see [Database Clients](/database-clients).
+For runtime usage (`.run(...)` and transactions), see:
+
+- [Bun Runtime API](/bun/runtime)
+- [pg Runtime API](/pg/runtime)
 
 These are available top-level keys, all of which are optional:
 
@@ -192,10 +195,10 @@ These files must be included in your TypeScript compilation. That may happen for
 
 #### Programmatic generation
 
-As an alternative to the command line tool, it's also possible to generate the schema programmatically by importing from `@brand-map/postgres/pg`. For example:
+As an alternative to the command line tool, it's also possible to generate the schema programmatically by importing from `@brand-map/postgres/pg/generate`. For example:
 
 ```typescript:norun
-import * as zg from '@brand-map/postgres/pg';
+import * as zg from '@brand-map/postgres/pg/generate';
 
 const zapCfg: zg.Config = {
   client: 'pg',
@@ -207,7 +210,7 @@ await zg.generate(zapCfg);
 Using Bun SQL for generation:
 
 ```typescript:norun
-import * as bz from '@brand-map/postgres/bun';
+import * as bz from '@brand-map/postgres/bun/generate';
 
 await bz.generate({
   client: 'bun',
@@ -284,4 +287,4 @@ To import any user-defined or domain types:
 import type * as c from '@brand-map/postgres/custom';
 ```
 
-The paths `@brand-map/postgres/pg`, `@brand-map/postgres/pg`, `@brand-map/postgres/bun`, and `@brand-map/postgres/bun` point to real folders in `node_modules`. Although they look like file paths, `@brand-map/postgres/schema` and `@brand-map/postgres/custom` are ambient modules declared in generated files in your source tree: `brand-map-postgres.schema.d.ts` and `custom/*.d.ts`.
+The paths `@brand-map/postgres/pg`, `@brand-map/postgres/pg/generate`, `@brand-map/postgres/bun`, and `@brand-map/postgres/bun/generate` point to real exports in `node_modules`. Although they look like file paths, `@brand-map/postgres/schema` and `@brand-map/postgres/custom` are ambient modules declared in generated files in your source tree: `brand-map-postgres.schema.d.ts` and `custom/*.d.ts`.

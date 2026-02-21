@@ -2,6 +2,8 @@ import type { CustomTypes } from "../types"
 import type { QueryResult, SqlQuery } from "../types"
 import type { CompleteConfig } from "./generate-config"
 
+import { SQL } from "bun"
+
 import { enumDataForSchema, enumTypesForEnumData } from "../shared/generate-enums"
 import { header } from "../shared/generate-header"
 import {
@@ -50,6 +52,16 @@ interface BunSqlClient {
   close(options?: { timeout?: number }): Promise<void>
 }
 
+type BunModule = { SQL?: new (options?: unknown) => BunSqlClient }
+
+type GenerateTsOutputDeps = {
+  loadBunModule: () => Promise<BunModule>
+}
+
+const defaultGenerateTsOutputDeps: GenerateTsOutputDeps = {
+  loadBunModule: async () => (await import("bun")) as BunModule
+}
+
 function normaliseBunSqlOptions(options: CompleteConfig["options"]) {
   if (typeof options === "object" && options !== null && "connectionString" in options && typeof (options as { connectionString?: unknown }).connectionString === "string") {
     return (options as { connectionString: string }).connectionString
@@ -58,10 +70,10 @@ function normaliseBunSqlOptions(options: CompleteConfig["options"]) {
   return options
 }
 
-async function createBunSqlClient(options: CompleteConfig["options"]): Promise<BunSqlClient> {
-  let bunModule: { SQL?: new (options?: unknown) => BunSqlClient }
+async function createBunSqlClient(options: CompleteConfig["options"], deps: GenerateTsOutputDeps): Promise<BunSqlClient> {
+  let bunModule: BunModule
   try {
-    bunModule = (await import("bun")) as { SQL?: new (options?: unknown) => BunSqlClient }
+    bunModule = await deps.loadBunModule()
   } catch (err) {
     throw new Error(`This runtime cannot import module "bun"`, { cause: err })
   }
@@ -73,10 +85,22 @@ async function createBunSqlClient(options: CompleteConfig["options"]): Promise<B
   return new bunModule.SQL(normaliseBunSqlOptions(options))
 }
 
-export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => void) => {
+function formatBunSqlError(err: SQL.SQLError) {
+  if (err instanceof SQL.PostgresError) {
+    const sqlState = typeof err.errno === "string" && err.errno.length === 5 ? ` (SQLSTATE ${err.errno})` : ""
+    const detail = err.detail ? ` Detail: ${err.detail}` : ""
+    const hint = err.hint ? ` Hint: ${err.hint}` : ""
+    return `${err.code}${sqlState}: ${err.message}${detail}${hint}`
+  }
+
+  return `${(err as { code?: string }).code ?? err.name}: ${err.message}`
+}
+
+export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => void, deps: Partial<GenerateTsOutputDeps> = {}) => {
   let querySeq = 0
+  const resolvedDeps = { ...defaultGenerateTsOutputDeps, ...deps }
   const { schemas, options } = config
-  const bunSql = await createBunSqlClient(options)
+  const bunSql = await createBunSqlClient(options, resolvedDeps)
   const customTypes: CustomTypes = {}
   const schemaNames = Object.keys(schemas)
   let queryChain = Promise.resolve()
@@ -94,7 +118,7 @@ export const tsForConfig = async (config: CompleteConfig, debug: (s: string) => 
           debug(`<<< result ${seq} <<<\n${JSON.stringify(result, null, 2)}\n`)
           resolve(result)
         } catch (e: unknown) {
-          const err = e instanceof Error ? e : new Error(String(e))
+          const err = e instanceof SQL.SQLError ? new Error(formatBunSqlError(e), { cause: e }) : e instanceof Error ? e : new Error(String(e))
           const cleanedQuery = query.text.replace(/^\s+|\s+$/gm, "")
           reject(new Error(`Schema generation query ${seq} failed: ${err.message}\nSQL:\n${cleanedQuery}\nvalues: ${JSON.stringify(query.values)}`, { cause: err }))
         }

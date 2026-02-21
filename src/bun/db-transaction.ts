@@ -1,5 +1,7 @@
 import type { BunSqlQueryable } from "./db-core"
 
+import { SQL } from "bun"
+
 import { getConfig } from "../shared/config"
 import { wait } from "../shared/utils"
 
@@ -99,17 +101,33 @@ function getTransactionBrand(queryable: BunTransactionQueryable | TransactionCli
 }
 
 function getSqlStateCode(err: unknown): string | undefined {
-  const code = (err as { code?: unknown } | null)?.code
-  if (typeof code !== "string" || code.length !== 5) {
+  if (!(err instanceof SQL.PostgresError)) {
     return undefined
   }
 
-  return code
+  if (typeof err.errno === "string" && err.errno.length === 5) {
+    return err.errno
+  }
+
+  if (typeof err.code === "string" && err.code.length === 5) {
+    return err.code
+  }
+
+  return undefined
 }
 
-function isRetryableTransactionRollback(err: unknown): err is { code: string } {
-  const code = getSqlStateCode(err)
-  return code === serializationFailureCode || code === deadlockDetectedCode
+function isRetryableTransactionRollback(err: unknown): err is SQL.PostgresError {
+  if (!(err instanceof SQL.PostgresError)) {
+    return false
+  }
+
+  const sqlStateCode = getSqlStateCode(err)
+  return sqlStateCode === serializationFailureCode || sqlStateCode === deadlockDetectedCode
+}
+
+function formatRetryErrorCode(err: SQL.PostgresError): string {
+  const sqlStateCode = getSqlStateCode(err)
+  return sqlStateCode ? `${err.code}/${sqlStateCode}` : err.code
 }
 
 function applyTransactionBrand<T extends IsolationLevel>(client: BunTransactionClient<IsolationLevel>, brand: { isolationLevel: T; transactionId: number }) {
@@ -119,6 +137,10 @@ function applyTransactionBrand<T extends IsolationLevel>(client: BunTransactionC
 }
 
 let transactionSequence = 0
+
+export function __setTransactionSequenceForTests(value: number) {
+  transactionSequence = value
+}
 
 /**
  * Provide a Bun SQL transaction client to the callback.
@@ -185,14 +207,14 @@ export async function transaction<T, M extends IsolationLevel>(
 
       if (attempt >= maxAttempts) {
         if (transactionListener) {
-          transactionListener(`Transaction rollback (code ${err.code}) on attempt ${attempt} of ${maxAttempts}, giving up`, transactionId)
+          transactionListener(`Transaction rollback (code ${formatRetryErrorCode(err)}) on attempt ${attempt} of ${maxAttempts}, giving up`, transactionId)
         }
         throw err
       }
 
       const delayBeforeRetry = Math.round(min + (max - min) * Math.random())
       if (transactionListener) {
-        transactionListener(`Transaction rollback (code ${err.code}) on attempt ${attempt} of ${maxAttempts}, retrying in ${delayBeforeRetry}ms`, transactionId)
+        transactionListener(`Transaction rollback (code ${formatRetryErrorCode(err)}) on attempt ${attempt} of ${maxAttempts}, retrying in ${delayBeforeRetry}ms`, transactionId)
       }
       await wait(delayBeforeRetry)
     }
