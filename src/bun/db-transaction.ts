@@ -1,7 +1,6 @@
 import type { BunSqlQueryable } from "./db-core"
 
 import { getConfig } from "../shared/config"
-// import { isDatabaseError } from "../pg/db-pg-errors"
 import { wait } from "../shared/utils"
 
 // these are the only meaningful values in Postgres:
@@ -67,8 +66,56 @@ export interface BunTransactionQueryable extends BunSqlQueryable {
   begin<T>(options: string, callback: (client: BunTransactionClient<IsolationLevel>) => Promise<T>): Promise<T>
 }
 
+interface BunSavepointQueryable extends BunSqlQueryable {
+  savepoint<T>(callback: (client: BunTransactionClient<IsolationLevel>) => Promise<T>): Promise<T>
+  savepoint<T>(name: string, callback: (client: BunTransactionClient<IsolationLevel>) => Promise<T>): Promise<T>
+}
+
+type TransactionBrand = { isolationLevel: IsolationLevel; transactionId: number }
+
+const serializationFailureCode = "40001"
+const deadlockDetectedCode = "40P01"
+
 function isBunSqlTransactionQueryable(queryable: BunTransactionQueryable | TransactionClient<IsolationLevel>): queryable is BunTransactionQueryable {
   return typeof (queryable as { begin?: unknown }).begin === "function"
+}
+
+function isBunSavepointQueryable(queryable: TransactionClient<IsolationLevel>): queryable is TransactionClient<IsolationLevel> & BunSavepointQueryable {
+  return typeof (queryable as { savepoint?: unknown }).savepoint === "function"
+}
+
+function getTransactionBrand(queryable: BunTransactionQueryable | TransactionClient<IsolationLevel>): TransactionBrand | undefined {
+  const brand = (queryable as { __bmPostgres?: unknown }).__bmPostgres
+  if (brand === null || typeof brand !== "object") {
+    return undefined
+  }
+
+  const { isolationLevel, transactionId } = brand as { isolationLevel?: unknown; transactionId?: unknown }
+  if (typeof isolationLevel !== "string" || typeof transactionId !== "number") {
+    return undefined
+  }
+
+  return { isolationLevel: isolationLevel as IsolationLevel, transactionId }
+}
+
+function getSqlStateCode(err: unknown): string | undefined {
+  const code = (err as { code?: unknown } | null)?.code
+  if (typeof code !== "string" || code.length !== 5) {
+    return undefined
+  }
+
+  return code
+}
+
+function isRetryableTransactionRollback(err: unknown): err is { code: string } {
+  const code = getSqlStateCode(err)
+  return code === serializationFailureCode || code === deadlockDetectedCode
+}
+
+function applyTransactionBrand<T extends IsolationLevel>(client: BunTransactionClient<IsolationLevel>, brand: { isolationLevel: T; transactionId: number }) {
+  const transactionClient = client as TransactionClient<T>
+  transactionClient.__bmPostgres = brand
+  return transactionClient
 }
 
 let transactionSequence = 0
@@ -81,8 +128,25 @@ export async function transaction<T, M extends IsolationLevel>(
   isolationLevel: M,
   callback: (client: TransactionClient<IsolationSatisfying<M>>) => Promise<T>
 ): Promise<T> {
-  if (Object.hasOwn(transactionClientOrQueryable, "__bmPostgres")) {
-    return callback(transactionClientOrQueryable as TransactionClient<IsolationSatisfying<M>>)
+  const transactionBrand = getTransactionBrand(transactionClientOrQueryable)
+  if (transactionBrand) {
+    const transactionClient = transactionClientOrQueryable as TransactionClient<IsolationSatisfying<M>>
+
+    if (!isBunSavepointQueryable(transactionClient)) {
+      return callback(transactionClient)
+    }
+
+    return transactionClient.savepoint(async bunSavepointClient => {
+      const savepointClient = applyTransactionBrand(bunSavepointClient, {
+        isolationLevel: transactionBrand.isolationLevel as IsolationSatisfying<M>,
+        transactionId: transactionBrand.transactionId
+      })
+      try {
+        return await callback(savepointClient)
+      } finally {
+        delete savepointClient.__bmPostgres
+      }
+    })
   }
 
   if (!isBunSqlTransactionQueryable(transactionClientOrQueryable)) {
@@ -107,19 +171,17 @@ export async function transaction<T, M extends IsolationLevel>(
       }
 
       return await transactionClientOrQueryable.begin(beginOptions, async bunTransactionClient => {
-        const transactionClient = bunTransactionClient as TransactionClient<IsolationSatisfying<M>>
-        transactionClient.__bmPostgres = { isolationLevel: isolationLevel as IsolationSatisfying<M>, transactionId }
+        const transactionClient = applyTransactionBrand(bunTransactionClient, { isolationLevel: isolationLevel as IsolationSatisfying<M>, transactionId })
         try {
           return await callback(transactionClient)
         } finally {
           delete transactionClient.__bmPostgres
         }
       })
-    } catch (err: any) {
-      // TODO: bun specific errors
-      // if (!isDatabaseError(err, "TransactionRollback_SerializationFailure", "TransactionRollback_DeadlockDetected")) {
-      //   throw err
-      // }
+    } catch (err: unknown) {
+      if (!isRetryableTransactionRollback(err)) {
+        throw err
+      }
 
       if (attempt >= maxAttempts) {
         if (transactionListener) {
