@@ -3,7 +3,7 @@ import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 
-import { generate } from "../../src/pg/generate/write"
+import { generate } from "../../src/pg/generate-write"
 
 const createdDirs: string[] = []
 const pgConfig = { client: "pg" as const, config: "postgresql://postgres:postgres@localhost:5432/postgres" }

@@ -1,6 +1,6 @@
-import type { QueryResult, SqlQuery } from "../../types"
+import type { QueryResult, SqlQuery } from "../types"
 
-import { pascalCase } from "../case"
+import { pascalCase } from "./case"
 
 export type EnumData = { [k: string]: string[] }
 

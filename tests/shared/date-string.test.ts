@@ -2,8 +2,8 @@ import type { GeneratorCommonConfig } from "../../src/types"
 
 import { describe, expect, test } from "bun:test"
 
-import { cols, param, sql, vals, type PgQueryable } from "../../src/shared/db/core"
-import { tsTypeForPgType } from "../../src/shared/generate/pg-types"
+import { cols, param, sql, vals, type PgQueryable } from "../../src/shared/db-core"
+import { tsTypeForPgType } from "../../src/shared/generate-postgres-types"
 
 const generatorConfig: GeneratorCommonConfig = {
   outDir: ".",

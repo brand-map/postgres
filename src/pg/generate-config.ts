@@ -1,10 +1,13 @@
-import type { SQL } from "bun"
+import type * as pg from "pg"
 
-import type { GeneratorCommonConfig } from "../../types"
+import type { GeneratorCommonConfig } from "../types"
+
+export type DbClient = "pg"
+export type DbConfig = pg.ClientConfig | string | URL | Record<string, unknown>
 
 type GeneratorClientConfig = {
-  client: "bun"
-  options: SQL.PostgresOrMySQLOptions
+  client: "pg"
+  config: DbConfig
 }
 
 export type BaseConfig = GeneratorClientConfig
@@ -12,9 +15,9 @@ export type BaseConfig = GeneratorClientConfig
 export type Config = BaseConfig & Partial<GeneratorCommonConfig>
 export type CompleteConfig = BaseConfig & GeneratorCommonConfig
 
-const defaultClientConfig: BaseConfig = {
-  client: "bun",
-  options: { url: "postgresql://postgres:postgres@localhost:5432/postgres" }
+const defaultClientConfig: Extract<BaseConfig, { client: "pg" }> = {
+  client: "pg",
+  config: "postgresql://postgres:postgres@localhost:5432/postgres"
 }
 
 const defaultConfig: GeneratorCommonConfig = {
@@ -31,4 +34,7 @@ const defaultConfig: GeneratorCommonConfig = {
   customJsonParsingForLargeNumbers: false
 }
 
-export const finaliseConfig = (config: Config) => ({ ...defaultConfig, ...defaultClientConfig, ...config }) as CompleteConfig
+export const finaliseConfig = (config: Config) => {
+  const finalConfig = { ...defaultConfig, ...defaultClientConfig, ...config }
+  return finalConfig as CompleteConfig
+}

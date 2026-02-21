@@ -1,8 +1,8 @@
 import { join } from "node:path"
 
-import { header } from "../../shared/generate/header"
-import { finaliseConfig, type Config } from "./config"
-import { tsForConfig } from "./ts-output"
+import { header } from "../shared/generate-header"
+import { finaliseConfig, type Config } from "./generate-config"
+import { tsForConfig } from "./generate-ts-output"
 
 type GenerateDeps = {
   file: typeof Bun.file

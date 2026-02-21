@@ -5,7 +5,7 @@ import * as path from "node:path"
 
 import * as pg from "pg"
 
-import { generate as generatePg } from "../../src/pg/generate/write"
+import { generate as generatePg } from "../../src/pg/generate-write"
 import { assertExpectedGeneratedOutput, quoteIdentifier, randomSchemaName, runMigrations, type SeedUser } from "../shared/generate.integration.helpers"
 
 const databaseUrl = process.env.BRAND_MAP_POSTGRES_TEST_DATABASE_URL ?? process.env.TEST_DATABASE_URL

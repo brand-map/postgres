@@ -1,9 +1,9 @@
 import type { Updatable, Whereable, Table, Column } from "@brand-map/postgres/schema"
+import type { SQL } from "bun"
 
-import type { QueryResult, SqlQuery } from "../../types"
+import type { QueryResult, SqlQuery } from "../types"
 
-import { getConfig } from "../config"
-import { isPojo } from "../utils"
+import { getConfig } from "../shared/config"
 
 const timing = typeof performance === "object" ? () => performance.now() : () => Date.now()
 
@@ -341,13 +341,11 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
    * @param queryable A database client or pool
    * @param force If true, force this query to hit the DB even if it's marked as a no-op
    */
-  run: {
-    (queryable: PgQueryable, force?: boolean): Promise<RunResult>
-    (queryable: BunSqlQueryable, force?: boolean): Promise<RunResult>
-  } = async (queryable: Queryable, force = false): Promise<RunResult> => {
+  run = async (queryable: SQL, force = false): Promise<RunResult> => {
     const query = this.compile()
     const { queryListener, resultListener } = getConfig()
-    const transactionId = (queryable as any).__bmPostgres?.transactionId
+    // TODO: nested transactions bun SQL
+    const transactionId = queryable.__bmPostgres?.transactionId
 
     if (queryListener) {
       queryListener(query, transactionId)
@@ -423,7 +421,12 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
 
       if (
         (expression.cast !== false && (expression.cast === true || config.castArrayParamsToJson) && Array.isArray(expression.value)) ||
-        (expression.cast !== false && (expression.cast === true || config.castObjectParamsToJson) && isPojo(expression.value))
+        (expression.cast !== false &&
+          (expression.cast === true || config.castObjectParamsToJson) &&
+          typeof expression.value === "object" &&
+          expression.value !== null &&
+          expression.value.constructor === Object &&
+          expression.value.toString() === "[object Object]")
       ) {
         result.values.push(JSON.stringify(expression.value))
         result.text += `CAST(${placeholder} AS "json")`

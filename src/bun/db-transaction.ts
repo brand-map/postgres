@@ -1,8 +1,8 @@
-import type { BunSqlQueryable } from "../../shared/db/core"
+import type { BunSqlQueryable } from "./db-core"
 
-import { getConfig } from "../../shared/config"
-import { isDatabaseError } from "../../shared/db/postgres-errors"
-import { wait } from "../../shared/utils"
+import { getConfig } from "../shared/config"
+// import { isDatabaseError } from "../pg/db-pg-errors"
+import { wait } from "../shared/utils"
 
 // these are the only meaningful values in Postgres:
 // https://www.postgresql.org/docs/18/sql-set-transaction.html
@@ -116,9 +116,10 @@ export async function transaction<T, M extends IsolationLevel>(
         }
       })
     } catch (err: any) {
-      if (!isDatabaseError(err, "TransactionRollback_SerializationFailure", "TransactionRollback_DeadlockDetected")) {
-        throw err
-      }
+      // TODO: bun specific errors
+      // if (!isDatabaseError(err, "TransactionRollback_SerializationFailure", "TransactionRollback_DeadlockDetected")) {
+      //   throw err
+      // }
 
       if (attempt >= maxAttempts) {
         if (transactionListener) {

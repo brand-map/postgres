@@ -1,7 +1,7 @@
 import type { Whereable } from "@brand-map/postgres/schema"
 
-import { SqlFragment, ParentColumn, Parameter, param, sql, type Sql, SELF, vals } from "./db/core"
-import { mapWithSeparator } from "./utils"
+import { mapWithSeparator } from "../shared/utils"
+import { SqlFragment, ParentColumn, Parameter, param, sql, type Sql, SELF, vals } from "./db-core"
 
 const conditionalParam = (a: any) => (a instanceof SqlFragment || a instanceof ParentColumn || a instanceof Parameter ? a : param(a))
 

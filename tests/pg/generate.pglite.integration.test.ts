@@ -5,7 +5,7 @@ import * as path from "node:path"
 
 import * as pg from "pg"
 
-import { generate as generatePg } from "../../src/pg/generate/write"
+import { generate as generatePg } from "../../src/pg/generate-write"
 import { assertExpectedGeneratedOutput, quoteIdentifier, randomSchemaName, runMigrations, type SeedUser, withPgliteServer } from "../shared/generate.integration.helpers"
 
 function assertExpectedSeedData(users: SeedUser[]) {

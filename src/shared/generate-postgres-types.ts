@@ -1,7 +1,7 @@
-import type { GeneratorCommonConfig } from "../../types"
-import type { EnumData } from "./enums"
+import type { GeneratorCommonConfig } from "../types"
+import type { EnumData } from "./generate-enums"
 
-import { pascalCase } from "../case"
+import { pascalCase } from "./case"
 
 type TypeContext = "JsonSelectable" | "Selectable" | "Insertable" | "Updatable" | "Whereable"
 

@@ -13,8 +13,8 @@ import type {
   SqlForTable
 } from "@brand-map/postgres/schema"
 
-import { completeKeysWithDefaultValue, mapWithSeparator } from "../utils"
-import { ALL, type Sql, SqlFragment, sql, cols, vals, raw, param, DEFAULT } from "./core"
+import { completeKeysWithDefaultValue, mapWithSeparator } from "../shared/utils"
+import { ALL, type Sql, SqlFragment, sql, cols, vals, raw, param, DEFAULT } from "./db-core"
 
 export type JsonOnlyColsForTable<T extends Table, C extends any[] /* `ColumnForTable<T>[]` gives errors here for reasons I haven't got to the bottom of */> = Pick<
   JsonSelectableForTable<T>,

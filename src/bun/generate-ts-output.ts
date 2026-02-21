@@ -1,9 +1,9 @@
-import type { CustomTypes } from "../../types"
-import type { QueryResult, SqlQuery } from "../../types"
-import type { CompleteConfig } from "./config"
+import type { CustomTypes } from "../types"
+import type { QueryResult, SqlQuery } from "../types"
+import type { CompleteConfig } from "./generate-config"
 
-import { enumDataForSchema, enumTypesForEnumData } from "../../shared/generate/enums"
-import { header } from "../../shared/generate/header"
+import { enumDataForSchema, enumTypesForEnumData } from "../shared/generate-enums"
+import { header } from "../shared/generate-header"
 import {
   relationsInSchema,
   definitionForRelationInSchema,
@@ -11,7 +11,7 @@ import {
   crossSchemaTypesForAllTables,
   crossSchemaTypesForSchemas,
   type Relation
-} from "../../shared/generate/tables"
+} from "../shared/generate-tables"
 
 const declareModule = (module: string, declarations: string) => `
 declare module '${module}' {

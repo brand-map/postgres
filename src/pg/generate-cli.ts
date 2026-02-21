@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 
-import type { Config } from "./config"
+import type { Config } from "./generate-config"
 
 import * as fs from "node:fs"
 
-import { generate } from "./exports"
+import { generate } from "./generate"
 
 function recursivelyInterpolateEnvVars(thing: unknown): any {
   // string? => do the interpolation

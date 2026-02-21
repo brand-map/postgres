@@ -1,10 +1,10 @@
-import type { BunSqlQueryable } from "../../src/bun/db/exports"
-import type { BunTransactionQueryable, BunTransactionClient } from "../../src/bun/db/transaction"
+import type { BunSqlQueryable } from "../../src/bun/db"
+import type { BunTransactionQueryable, BunTransactionClient } from "../../src/bun/db-transaction"
 
 import { describe, expect, test } from "bun:test"
 
-import { sql } from "../../src/bun/db/exports"
-import { IsolationLevel, transaction } from "../../src/bun/db/transaction"
+import { sql } from "../../src/bun/db"
+import { IsolationLevel, transaction } from "../../src/bun/db-transaction"
 
 type UnsafeCall = {
   text: string

@@ -1,9 +1,9 @@
-import type { GeneratorCommonConfig, CustomTypes } from "../../types"
-import type { QueryResult, SqlQuery } from "../../types"
-import type { EnumData } from "./enums"
+import type { GeneratorCommonConfig, CustomTypes } from "../types"
+import type { QueryResult, SqlQuery } from "../types"
+import type { EnumData } from "./generate-enums"
 
-import { camelCase, pascalCase } from "../case"
-import { tsTypeForPgType } from "./postgres-types"
+import { camelCase, pascalCase } from "./case"
+import { tsTypeForPgType } from "./generate-postgres-types"
 
 export interface Relation {
   schema: string

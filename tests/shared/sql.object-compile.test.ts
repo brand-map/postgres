@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { cols, param, self, sql, vals } from "../../src/shared/db/core"
+import { cols, param, self, sql, vals } from "../../src/shared/db-core"
 
 describe("sql object compile output", () => {
   test("compiles where object into stable SQL text and values", () => {
