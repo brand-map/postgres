@@ -15,14 +15,14 @@ describe("sql object compile output", () => {
     });
   });
 
-  test("compiles camelCase object keys to snake_case column names", () => {
+  test("preserves camelCase object keys in compiled column names", () => {
     const where = { displayName: "Alice", createdAt: "2026-01-01" };
     const query = sql`SELECT * FROM ${"users"} WHERE ${where}`;
 
     const compiled = query.compile();
 
     expect(compiled).toEqual({
-      text: 'SELECT * FROM "users" WHERE ("created_at" = $1 AND "display_name" = $2)',
+      text: 'SELECT * FROM "users" WHERE ("createdAt" = $1 AND "displayName" = $2)',
       values: ["2026-01-01", "Alice"],
     });
   });
@@ -34,7 +34,7 @@ describe("sql object compile output", () => {
     const compiled = query.compile();
 
     expect(compiled).toEqual({
-      text: 'INSERT INTO "sample_table" ("alpha", "beta", "zeta") VALUES ($1, $2, $3)',
+      text: 'INSERT INTO "sampleTable" ("alpha", "beta", "zeta") VALUES ($1, $2, $3)',
       values: [1, 2, 5],
     });
   });
@@ -61,7 +61,7 @@ describe("sql object compile output", () => {
     const compiled = query.compile();
 
     expect(compiled).toEqual({
-      text: 'SELECT * FROM "scores" WHERE (("score" > $1) AND "user_id" = $2)',
+      text: 'SELECT * FROM "scores" WHERE (("score" > $1) AND "userId" = $2)',
       values: [10, 7],
     });
   });

@@ -78,9 +78,9 @@ export function completeKeysWithDefaultValueObject<T extends object>(obj: T, def
   return record;
 }
 
-// /**
-//  * Test that a value is a Plain Old JavaScript Object (such as one created by an object
-//  * literal, e.g. `{x: 1, y: 2}`)
-//  * @param x The value to test
-//  */
-// export const isPojo = (x: any) => typeof x === "object" && x !== null && x.constructor === Object && x.toString() === "[object Object]";
+/**
+ * Test that a value is a Plain Old JavaScript Object (such as one created by an object
+ * literal, e.g. `{x: 1, y: 2}`)
+ * @param x The value to test
+ */
+export const isPojo = (x: any) => typeof x === "object" && x !== null && x.constructor === Object && x.toString() === "[object Object]";

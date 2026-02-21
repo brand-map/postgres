@@ -23,12 +23,12 @@ function createBunQueryable(rows: any[]) {
 }
 
 describe("bun sql compatibility", () => {
-  test("sql.run executes through Bun SQL unsafe and maps row keys", async () => {
+  test("sql.run executes through Bun SQL unsafe and preserves row keys", async () => {
     const { queryable, calls } = createBunQueryable([{ snake_case_value: 7 }]);
 
-    const rows = await sql<never, Array<{ snakeCaseValue: number }>>`SELECT 7 AS snake_case_value`.run(queryable);
+    const rows = await sql<never, Array<{ snake_case_value: number }>>`SELECT 7 AS snake_case_value`.run(queryable);
 
-    expect(rows).toEqual([{ snakeCaseValue: 7 }]);
+    expect(rows).toEqual([{ snake_case_value: 7 }]);
     expect(calls).toHaveLength(1);
     expect(calls[0]!.text).toContain("SELECT 7 AS snake_case_value");
     expect(calls[0]!.values).toEqual([]);

@@ -47,13 +47,13 @@ describe("date runtime normalization", () => {
       }),
     };
 
-    const result = await sql<never, Array<{ createdAt: string; nestedValue: { updatedAt: string }; createdList: string[] }>>`SELECT now() AS created_at`.run(pgQueryable);
+    const result = await sql<never, Array<{ created_at: string; nested_value: { updated_at: string }; created_list: string[] }>>`SELECT now() AS created_at`.run(pgQueryable);
 
     expect(result).toEqual([
       {
-        createdAt: "2026-02-20T00:00:00.000Z",
-        nestedValue: { updatedAt: "2026-02-20T00:00:00.000Z" },
-        createdList: ["2026-02-20T00:00:00.000Z"],
+        created_at: "2026-02-20T00:00:00.000Z",
+        nested_value: { updated_at: "2026-02-20T00:00:00.000Z" },
+        created_list: ["2026-02-20T00:00:00.000Z"],
       },
     ]);
   });

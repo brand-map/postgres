@@ -1,12 +1,9 @@
-import assert from "node:assert/strict";
-
 import type { Updatable, Whereable, Table, Column } from "@brand-map/postgres/schema";
-import { snakeCase, toCamelCaseKeys } from "es-toolkit";
 
 import type { QueryResult, SqlQuery } from "../../types/query";
 
 import { getConfig } from "./config";
-import type { NoInfer } from "./utils";
+import { isPojo, type NoInfer } from "./utils";
 
 const timing = typeof performance === "object" ? () => performance.now() : () => Date.now();
 
@@ -295,7 +292,7 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
    * returned — i.e. `(queryResult) => queryResult.rows` — but some shortcut functions alter this
    * in order to match their declared `RunResult` type.
    */
-  runResultTransform: (queryResult: QueryResult) => any = (queryResult) => normaliseDateValues(toCamelCaseKeys(queryResult.rows));
+  runResultTransform: (queryResult: QueryResult) => any = (queryResult) => normaliseDateValues(queryResult.rows);
 
   parentTable?: string = undefined; // used for nested shortcut select queries
   preparedName?: string = undefined; // for prepared statements
@@ -405,57 +402,36 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
   };
 
   compileExpression = (expression: Sql, result: SqlQuery = { text: "", values: [] }, parentTable?: string, currentColumn?: Column) => {
-    if (this.parentTable) {
-      parentTable = this.parentTable;
-    }
+    if (this.parentTable) parentTable = this.parentTable;
 
     if (expression instanceof SqlFragment) {
-      // another Sql fragment? recursively compile this one
+      // another SQL fragment? recursively compile this one
       expression.compile(result, parentTable, currentColumn);
     } else if (typeof expression === "string") {
-      if (hasUppercase(expression)) {
-        const final = expression
-          .split(".")
-          .map((str) => `"${snakeCase(str)}"`)
-          .join(".");
-
-        result.text += final;
-      } else {
-        // if it's a string, it should be a x.Table or x.Column type, so just needs quoting
-        result.text += expression.startsWith('"') && expression.endsWith('"') ? expression : `"${expression.replace(/[.]/g, '"."')}"`;
-      }
+      // if it's a string, it should be a x.Table or x.Column type, so just needs quoting
+      result.text += expression.startsWith('"') && expression.endsWith('"') ? expression : `"${expression.replace(/[.]/g, '"."')}"`;
     } else if (expression instanceof DangerousRawString) {
       // Little Bobby Tables passes straight through ...
       result.text += expression.value;
     } else if (Array.isArray(expression)) {
       // an array's elements are compiled one by one -- note that an empty array can be used as a non-value
-      for (let i = 0, len = expression.length, sql = undefined; i < len; i++) {
-        sql = expression[i];
-        assert(sql);
-        this.compileExpression(sql, result, parentTable, currentColumn);
-      }
+      for (let i = 0, len = expression.length; i < len; i++) this.compileExpression(expression[i]!, result, parentTable, currentColumn);
     } else if (expression instanceof Parameter) {
       // parameters become placeholders, and a corresponding entry in the values array
-      const placeholder = `$${String(result.values.length + 1)}`; // 1-based indexing
-      const config = getConfig();
-      const parameterValue = normaliseDateValues(expression.value);
+      const placeholder = "$" + String(result.values.length + 1), // 1-based indexing
+        config = getConfig();
 
       if (
-        (expression.cast !== false && (expression.cast === true || config.castArrayParamsToJson) && Array.isArray(parameterValue)) ||
-        (expression.cast !== false &&
-          (expression.cast === true || config.castObjectParamsToJson) &&
-          typeof parameterValue === "object" &&
-          parameterValue !== null &&
-          parameterValue.constructor === Object &&
-          parameterValue.toString() === "[object Object]")
+        (expression.cast !== false && (expression.cast === true || config.castArrayParamsToJson) && Array.isArray(expression.value)) ||
+        (expression.cast !== false && (expression.cast === true || config.castObjectParamsToJson) && isPojo(expression.value))
       ) {
-        result.values.push(JSON.stringify(parameterValue));
+        result.values.push(JSON.stringify(expression.value));
         result.text += `CAST(${placeholder} AS "json")`;
       } else if (typeof expression.cast === "string") {
-        result.values.push(parameterValue);
+        result.values.push(expression.value);
         result.text += `CAST(${placeholder} AS "${expression.cast}")`;
       } else {
-        result.values.push(parameterValue);
+        result.values.push(expression.value);
         result.text += placeholder;
       }
     } else if (expression === Default) {
@@ -463,17 +439,11 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
       result.text += "DEFAULT";
     } else if (expression === self) {
       // alias to the latest column, if applicable
-      if (!currentColumn) {
-        throw new Error(`The 'self' column alias has no meaning here`);
-      }
-
+      if (!currentColumn) throw new Error(`The 'self' column alias has no meaning here`);
       this.compileExpression(currentColumn, result);
     } else if (expression instanceof ParentColumn) {
       // alias to the parent table (plus optional supplied column name) of a nested query, if applicable
-      if (!parentTable) {
-        throw new Error(`The 'parent' table alias has no meaning here`);
-      }
-
+      if (!parentTable) throw new Error(`The 'parent' table alias has no meaning here`);
       this.compileExpression(parentTable, result);
       result.text += ".";
       this.compileExpression(expression.value ?? currentColumn!, result);
@@ -482,10 +452,8 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
       // OR a ColumnNames-wrapped array -> quoted array values
       const columnNames = Array.isArray(expression.value) ? expression.value : Object.keys(expression.value).sort();
 
-      for (let i = 0, length = columnNames.length; i < length; i++) {
-        if (i > 0) {
-          result.text += ", ";
-        }
+      for (let i = 0, len = columnNames.length; i < len; i++) {
+        if (i > 0) result.text += ", ";
         this.compileExpression(String(columnNames[i]), result);
       }
     } else if (expression instanceof ColumnValues) {
@@ -494,43 +462,28 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
 
       if (Array.isArray(expression.value)) {
         const values: any[] = expression.value;
-
-        for (let i = 0, length = values.length; i < length; i++) {
+        for (let i = 0, len = values.length; i < len; i++) {
           const value = values[i];
-
-          if (i > 0) {
-            result.text += ", ";
-          }
-
-          if (value instanceof SqlFragment) {
-            this.compileExpression(value, result, parentTable);
-          } else {
-            this.compileExpression(new Parameter(value), result, parentTable);
-          }
+          if (i > 0) result.text += ", ";
+          if (value instanceof SqlFragment) this.compileExpression(value, result, parentTable);
+          else this.compileExpression(new Parameter(value), result, parentTable);
         }
       } else {
         const columnNames = <Column[]>Object.keys(expression.value).sort(),
           columnValues = columnNames.map((k) => (<any>expression.value)[k]);
 
         for (let i = 0, len = columnValues.length; i < len; i++) {
-          const columnName = columnNames[i];
-          const columnValue = columnValues[i];
-
-          if (i > 0) {
-            result.text += ", ";
-          }
-
-          if (columnValue instanceof SqlFragment || columnValue instanceof Parameter || columnValue === Default) {
+          const columnName = columnNames[i],
+            columnValue = columnValues[i];
+          if (i > 0) result.text += ", ";
+          if (columnValue instanceof SqlFragment || columnValue instanceof Parameter || columnValue === Default)
             this.compileExpression(columnValue, result, parentTable, columnName);
-          } else {
-            this.compileExpression(new Parameter(columnValue), result, parentTable, columnName);
-          }
+          else this.compileExpression(new Parameter(columnValue), result, parentTable, columnName);
         }
       }
     } else if (typeof expression === "object") {
-      if (expression === globalThis) {
-        throw new Error("Did you use `self` (the global object) where you meant `db.self` (the Postgres value)? The global object cannot be embedded in a query.");
-      }
+      if (expression === globalThis)
+        throw new Error("Did you use `self` (the global object) where you meant `db.self` (the Zapatos value)? The global object cannot be embedded in a query.");
 
       // must be a Whereable object, so put together a WHERE clause
       const columnNames = <Column[]>Object.keys(expression).sort();
@@ -538,41 +491,28 @@ export class SqlFragment<RunResult = QueryResult["rows"], Constraint = never> {
       if (columnNames.length) {
         // if the object is not empty
         result.text += "(";
-
         for (let i = 0, len = columnNames.length; i < len; i++) {
-          const columnName = columnNames[i];
-          const columnValue = (<any>expression)[columnName!];
+          const columnName = columnNames[i]!;
 
-          if (i > 0) {
-            result.text += " AND ";
-          }
-
+          const columnValue = (<any>expression)[columnName];
+          if (i > 0) result.text += " AND ";
           if (columnValue instanceof SqlFragment) {
             result.text += "(";
             this.compileExpression(columnValue, result, parentTable, columnName);
             result.text += ")";
           } else {
-            this.compileExpression(columnName!, result);
+            this.compileExpression(columnName, result);
             result.text += ` = `;
             this.compileExpression(columnValue instanceof ParentColumn ? columnValue : new Parameter(columnValue), result, parentTable, columnName);
           }
         }
-
         result.text += ")";
       } else {
         // or if it is empty, it should always match
         result.text += "TRUE";
       }
     } else {
-      throw new Error(`Alien object while interpolating Sql: ${expression}`);
+      throw new Error(`Alien object while interpolating SQL: ${expression}`);
     }
   };
-}
-
-function hasUppercase(str: string) {
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    if (c >= 65 && c <= 90) return true; // 'A'–'Z'
-  }
-  return false;
 }
