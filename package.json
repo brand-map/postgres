@@ -12,8 +12,10 @@
   ],
   "license": "MIT",
   "exports": {
+    ".": "./src/bun/exports.ts",
     "./pg": "./src/pg/exports.ts",
-    "./bun": "./src/bun/exports.ts"
+    "./generate": "./src/bun/generate/exports.ts",
+    "./generate/pg": "./src/pg/generate/exports.ts"
   },
   "publishConfig": {
     "access": "public"
