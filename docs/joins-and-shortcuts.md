@@ -11,30 +11,30 @@ We can make use of Postgres' excellent JSON support to achieve a variety of `JOI
 Take this example, retrieving each book with its (single) author:
 
 ```typescript
-type bookAuthorSQL = s.books.SQL | s.authors.SQL | "author";
-type bookAuthorSelectable = s.books.Selectable & { author: s.authors.Selectable };
+type bookAuthorSQL = s.books.SQL | s.authors.SQL | "author"
+type bookAuthorSelectable = s.books.Selectable & { author: s.authors.Selectable }
 
 const query = db.sql<bookAuthorSQL, bookAuthorSelectable[]>`
   SELECT ${"books"}.*, to_jsonb(${"authors"}.*) as ${"author"}
   FROM ${"books"} JOIN ${"authors"} 
-  ON ${"books"}.${"authorId"} = ${"authors"}.${"id"}`;
+  ON ${"books"}.${"authorId"} = ${"authors"}.${"id"}`
 
-const bookAuthors = await query.run(pool);
+const bookAuthors = await query.run(pool)
 ```
 
 Of course, we might also want the converse query, retrieving each author with their (many) books. This is also easy enough to arrange:
 
 ```typescript
-type authorBooksSQL = s.authors.SQL | s.books.SQL;
-type authorBooksSelectable = s.authors.Selectable & { books: s.books.Selectable[] };
+type authorBooksSQL = s.authors.SQL | s.books.SQL
+type authorBooksSelectable = s.authors.Selectable & { books: s.books.Selectable[] }
 
 const query = db.sql<authorBooksSQL, authorBooksSelectable[]>`
   SELECT ${"authors"}.*, jsonb_agg(${"books"}.*) AS ${"books"}
   FROM ${"authors"} JOIN ${"books"} 
   ON ${"authors"}.${"id"} = ${"books"}.${"authorId"}
-  GROUP BY ${"authors"}.${"id"}`;
+  GROUP BY ${"authors"}.${"id"}`
 
-const authorBooks = await query.run(pool);
+const authorBooks = await query.run(pool)
 ```
 
 Note that if you want to include authors with no books, you need a `LEFT JOIN` in this query, and then you'll also want to fix the annoying [`[null]` array results `jsonb_agg` will return for those authors](https://stackoverflow.com/questions/24155190/postgresql-left-join-json-agg-ignore-remove-null).
@@ -42,8 +42,8 @@ Note that if you want to include authors with no books, you need a `LEFT JOIN` i
 Rather than do it that way, though, we can achieve the same result using a [`LATERAL JOIN`](https://medium.com/kkempin/postgresqls-lateral-join-bfd6bd0199df) instead:
 
 ```typescript
-type authorBooksSQL = s.authors.SQL | s.books.SQL;
-type authorBooksSelectable = s.authors.Selectable & { books: s.books.Selectable[] };
+type authorBooksSQL = s.authors.SQL | s.books.SQL
+type authorBooksSelectable = s.authors.Selectable & { books: s.books.Selectable[] }
 
 const query = db.sql<authorBooksSQL, authorBooksSelectable[]>`
   SELECT ${"authors"}.*, bq.* 
@@ -51,9 +51,9 @@ const query = db.sql<authorBooksSQL, authorBooksSelectable[]>`
     SELECT coalesce(json_agg(${"books"}.*), '[]') AS ${"books"}
     FROM ${"books"}
     WHERE ${"books"}.${"authorId"} = ${"authors"}.${"id"}
-  ) bq ON true`;
+  ) bq ON true`
 
-const authorBooks = await query.run(pool);
+const authorBooks = await query.run(pool)
 ```
 
 Lateral joins of this sort are very flexible, and can be nested multiple levels deep — but can quickly become quite hairy in that case. The [`select` shortcut function](#select-selectone-and-selectexactlyone) and its [`lateral` option](#lateral-and-alias) can make this much less painful.
@@ -85,7 +85,7 @@ const // insert one
   steve = await db
     .insert("authors", {
       name: "Steven Hawking",
-      isLiving: false,
+      isLiving: false
     })
     .run(pool),
   // insert many
@@ -94,20 +94,20 @@ const // insert one
       {
         authorId: steve.id,
         title: "A Brief History of Time",
-        createdAt: db.sql`now()`,
+        createdAt: db.sql`now()`
       },
       {
         authorId: steve.id,
         title: "My Brief History",
-        createdAt: db.sql`now()`,
-      },
+        createdAt: db.sql`now()`
+      }
     ])
     .run(pool),
   tags = await db
     .insert("tags", [
       { bookId: time.id, tag: "physics" },
       { bookId: me.id, tag: "physicist" },
-      { bookId: me.id, tag: "autobiography" },
+      { bookId: me.id, tag: "autobiography" }
     ])
     .run(pool),
   // insert with custom return values
@@ -117,17 +117,17 @@ const // insert one
       {
         authorId: steve.id,
         title: "The Universe in a Nutshell",
-        createdAt: db.sql`now()`,
+        createdAt: db.sql`now()`
       },
       {
         returning: ["id"],
         extras: {
           aliasedTitle: "title",
-          upperTitle: db.sql<s.books.SQL, string | null>`upper(${"title"})`,
-        },
-      },
+          upperTitle: db.sql<s.books.SQL, string | null>`upper(${"title"})`
+        }
+      }
     )
-    .run(pool);
+    .run(pool)
 ```
 
 You'll note that `Insertable`s can take `SQLFragment` values (from the `sql` tagged template function) as well as direct values (strings, numbers, and so on).
@@ -152,7 +152,7 @@ It returns a `JSONSelectable[]`, listing every column of every row affected (or 
 For example, when we discover with that we've mis-spelled a famous physicist's name, we can do this:
 
 ```typescript
-await db.update("authors", { name: "Stephen Hawking" }, { name: "Steven Hawking" }).run(pool);
+await db.update("authors", { name: "Stephen Hawking" }, { name: "Steven Hawking" }).run(pool)
 ```
 
 Like `Insertable` values, `Updatable` values can also be `SQLFragment`s. For instance, take a table such as the following:
@@ -173,12 +173,12 @@ await db
     {
       consecutiveFailedLogins: db.sql`${db.self} + 1`,
       // or equivalently: consecutiveFailedLogins: dc.add(1),
-      lastFailedLogin: db.sql`now()`,
+      lastFailedLogin: db.sql`now()`
       // or equivalently: lastFailedLogin: dc.now,
     },
-    { email: "me@privacy.net" },
+    { email: "me@privacy.net" }
   )
-  .run(pool);
+  .run(pool)
 ```
 
 => shortcuts.ts /_ === upsert === _/
@@ -214,16 +214,16 @@ const newTransactions: s.appleTransactions.Insertable[] = [
       environment: "PROD",
       originalTransactionId: "123456",
       accountId: 123,
-      latestReceiptData: "TWFuIGlzIGRpc3Rp",
+      latestReceiptData: "TWFuIGlzIGRpc3Rp"
     },
     {
       environment: "PROD",
       originalTransactionId: "234567",
       accountId: 234,
-      latestReceiptData: "bmd1aXNoZWQsIG5v",
-    },
+      latestReceiptData: "bmd1aXNoZWQsIG5v"
+    }
   ],
-  result = await db.upsert("appleTransactions", newTransactions, ["environment", "originalTransactionId"]).run(pool);
+  result = await db.upsert("appleTransactions", newTransactions, ["environment", "originalTransactionId"]).run(pool)
 ```
 
 And it's wholly equivalent here to use the unique index name instead of the column names for the conflict target, by using the `constraint` wrapper function:
@@ -233,9 +233,9 @@ const anotherNewTransaction: s.appleTransactions.Insertable = {
     environment: "PROD",
     originalTransactionId: "345678",
     accountId: 345,
-    latestReceiptData: "lALvEleO4Ehwk3T5",
+    latestReceiptData: "lALvEleO4Ehwk3T5"
   },
-  result = await db.upsert("appleTransactions", anotherNewTransaction, db.constraint("appleTransactionsPrimaryKey")).run(pool);
+  result = await db.upsert("appleTransactions", anotherNewTransaction, db.constraint("appleTransactionsPrimaryKey")).run(pool)
 ```
 
 The same as for `insert`, an empty array provided to `upsert` is identified as a no-op, and the database will not actually be queried unless you set the `force` option on `run` to true.
@@ -298,7 +298,7 @@ In the following query, we insert a new value with a count of 1 if a name doesn'
 
 ```typescript
 for (let i = 0; i < 2; i++) {
-  await db.upsert("nameCounts", { name: "Alice", count: 1 }, "name", { updateValues: { count: db.sql`${"nameCounts"}.${"count"} + 1` } }).run(pool);
+  await db.upsert("nameCounts", { name: "Alice", count: 1 }, "name", { updateValues: { count: db.sql`${"nameCounts"}.${"count"} + 1` } }).run(pool)
 }
 ```
 
@@ -313,7 +313,7 @@ Again, you can narrow or broaden what's returned with the `returning` and `extra
 For example:
 
 ```typescript
-await db.deletes("books", { title: "Holes" }, { returning: ["id"] }).run(pool);
+await db.deletes("books", { title: "Holes" }, { returning: ["id"] }).run(pool)
 ```
 
 => shortcuts.ts /_ === truncate === _/
@@ -325,7 +325,7 @@ The `truncate` shortcut truncates one or more tables. It takes a `Table` name or
 For instance:
 
 ```typescript
-await db.truncate("bankAccounts").run(pool);
+await db.truncate("bankAccounts").run(pool)
 ```
 
 One context in which this may be useful is in emptying a testing database at the start of each test run.
@@ -377,28 +377,28 @@ In use, they look like this:
 
 ```typescript
 // select, no WHERE clause
-const allBooks = await db.select("books", db.all).run(pool);
+const allBooks = await db.select("books", db.all).run(pool)
 ```
 
 ```typescript
 // select, Whereable
-const authorBooks = await db.select("books", { authorId: 1000 }).run(pool);
+const authorBooks = await db.select("books", { authorId: 1000 }).run(pool)
 ```
 
 ```typescript
 // selectOne (since authors.id is a primary key), Whereable
-const oneAuthor = await db.selectOne("authors", { id: 1000 }).run(pool);
+const oneAuthor = await db.selectOne("authors", { id: 1000 }).run(pool)
 ```
 
 ```typescript
 // selectExactlyOne, Whereable
 // (for a more useful example, see the section on `lateral`, below)
 try {
-  const exactlyOneAuthor = await db.selectExactlyOne("authors", { id: 999 }).run(pool);
+  const exactlyOneAuthor = await db.selectExactlyOne("authors", { id: 999 }).run(pool)
   // ... do something with this author ...
 } catch (err: any) {
-  if (err instanceof db.NotExactlyOneError) console.log(`${err.name}: ${err.message}`);
-  else throw err;
+  if (err instanceof db.NotExactlyOneError) console.log(`${err.name}: ${err.message}`)
+  else throw err
 }
 ```
 
@@ -407,9 +407,9 @@ try {
 const recentAuthorBooks = await db
   .select("books", {
     authorId: 1001,
-    createdAt: db.sql`${db.self} > now() - INTERVAL '7 days'`,
+    createdAt: db.sql`${db.self} > now() - INTERVAL '7 days'`
   })
-  .run(pool);
+  .run(pool)
 ```
 
 ```typescript
@@ -417,14 +417,14 @@ const recentAuthorBooks = await db
 const alsoRecentAuthorBooks = await db
   .select("books", {
     authorId: 1001,
-    createdAt: dc.after(dc.fromNow(-7, "days")),
+    createdAt: dc.after(dc.fromNow(-7, "days"))
   })
-  .run(pool);
+  .run(pool)
 ```
 
 ```typescript
 // select, SQLFragment with embedded Whereables
-const anOddSelectionOfBooksToDemonstrateAnOrCondition = await db.select("books", db.sql<s.books.SQL>`${{ id: 1 }} OR ${{ authorId: 2 }}`).run(pool);
+const anOddSelectionOfBooksToDemonstrateAnOrCondition = await db.select("books", db.sql<s.books.SQL>`${{ id: 1 }} OR ${{ authorId: 2 }}`).run(pool)
 ```
 
 Similar to our earlier shortcut examples, once I've typed in `'books'` or `'authors'` as the first argument to the function, TypeScript and VS Code know both how to type-check and auto-complete both the `WHERE` argument and the type that will returned by `run`.
@@ -436,7 +436,7 @@ The `select` and `selectOne` shortcuts can also take an `options` object as thei
 The `columns` key specifies that we want to return only a subset of columns, perhaps for reasons of efficiency. It takes an array of `Column` names for the appropriate table, and works in just the same way as the `returning` option on the other query types. For example:
 
 ```typescript
-const bookTitles = await db.select("books", db.all, { columns: ["title"] }).run(pool);
+const bookTitles = await db.select("books", db.all, { columns: ["title"] }).run(pool)
 ```
 
 The return type is of course appropriately narrowed to the requested columns only, so VS Code will complain if we now try to access `bookTitles[0].authorId`, for example. (Note: this works only when `strictNullChecks` are in operation).
@@ -449,7 +449,7 @@ The `limit` and `offset` options each take a number and pass it directly through
 
 ```typescript:norun
 interface OrderSpecForTable<T extends Table> {
-  by: SQLForTable<T>;
+  by: SqlForTable<T>;
   direction: 'ASC' | 'DESC';
   nulls?: 'FIRST' | 'LAST';
 }
@@ -462,9 +462,9 @@ const [lastButOneBook] = await db
   .select("books", db.all, {
     order: { by: "createdAt", direction: "DESC" },
     limit: 1,
-    offset: 1,
+    offset: 1
   })
-  .run(pool);
+  .run(pool)
 ```
 
 I used destructuring assignment here (`const [lastButOneBook] = /* ... */;`) to account for the fact that I know this query is only going to return one response. Unfortunately, destructuring is just syntactic sugar for indexing, and indexing in TypeScript [doesn't reflect that the result may be undefined](https://github.com/Microsoft/TypeScript/issues/13778) unless you have [`--noUncheckedIndexedAccess`](https://devblogs.microsoft.com/typescript/announcing-typescript-4-1/#no-unchecked-indexed-access) turned on. That means that `lastButOneBook` is now typed as a `JSONSelectable`, but it could actually be `undefined`, and that could lead to errors down the line.
@@ -475,9 +475,9 @@ To fix this, we can use the `selectOne` function instead, which turns the exampl
 const lastButOneBook = await db
   .selectOne("books", db.all, {
     order: [{ by: "createdAt", direction: "DESC" }],
-    offset: 1,
+    offset: 1
   })
-  .run(pool);
+  .run(pool)
 ```
 
 The `{ limit: 1 }` option is now applied automatically. And the return type following `await` needs no destructuring and is now, correctly, `JSONSelectable | undefined`.
@@ -499,10 +499,10 @@ const booksAuthorTags = await db
   .select("books", db.all, {
     lateral: {
       author: db.selectExactlyOne("authors", { id: db.parent("authorId") }),
-      tags: db.select("tags", { bookId: db.parent("id") }),
-    },
+      tags: db.select("tags", { bookId: db.parent("id") })
+    }
   })
-  .run(pool);
+  .run(pool)
 ```
 
 The result here is a `books.JSONSelectable`, augmented with both an `author` property (containing an `authors.JSONSelectable`) and a `tags` property (containing a `tags.JSONSelectable[]` array).
@@ -520,13 +520,13 @@ const authorsBooksTags = await db
         { authorId: db.parent("id") },
         {
           lateral: {
-            tags: db.select("tags", { bookId: db.parent("id") }, { columns: ["tag"] }),
-          },
-        },
-      ),
-    },
+            tags: db.select("tags", { bookId: db.parent("id") }, { columns: ["tag"] })
+          }
+        }
+      )
+    }
   })
-  .run(pool);
+  .run(pool)
 ```
 
 You'll note the use of the `parent` function to refer to a join column in the table of the containing query. This is a simple convenience: in the join of books to authors above, we could just as well formulate the `Whereable` as:
@@ -553,10 +553,10 @@ const anna = await db.insert("employees", { name: "Anna" }).run(pool),
   [beth, charlie] = await db
     .insert("employees", [
       { name: "Beth", managerId: anna.id },
-      { name: "Charlie", managerId: anna.id },
+      { name: "Charlie", managerId: anna.id }
     ])
     .run(pool),
-  dougal = await db.insert("employees", { name: "Dougal", managerId: beth.id }).run(pool);
+  dougal = await db.insert("employees", { name: "Dougal", managerId: beth.id }).run(pool)
 ```
 
 Then query for a summary (joining the table to itself twice, with appropriate aliasing):
@@ -567,10 +567,10 @@ const people = await db
     columns: ["name"],
     lateral: {
       lineManager: db.selectOne("employees", { id: db.parent("managerId") }, { alias: "managers", columns: ["name"] }),
-      directReports: db.count("employees", { managerId: db.parent("id") }, { alias: "reports" }),
-    },
+      directReports: db.count("employees", { managerId: db.parent("id") }, { alias: "reports" })
+    }
   })
-  .run(pool);
+  .run(pool)
 ```
 
 As usual, this is fully typed. If, for example, you were to forget that `directReports` is a count rather than an array of employees, VS Code would soon disabuse you.
@@ -603,7 +603,7 @@ Insert some data:
 
 ```typescript
 const [alice, bobby, cathy] = await db.insert("subjects", [{ name: "Alice" }, { name: "Bobby" }, { name: "Cathy" }]).run(pool),
-  [photo1, photo2, photo3] = await db.insert("photos", [{ url: "photo1.jpg" }, { url: "photo2.jpg" }, { url: "photo3.jpg" }]).run(pool);
+  [photo1, photo2, photo3] = await db.insert("photos", [{ url: "photo1.jpg" }, { url: "photo2.jpg" }, { url: "photo3.jpg" }]).run(pool)
 
 await db
   .insert("subjectPhotos", [
@@ -611,9 +611,9 @@ await db
     { subjectId: alice.subjectId, photoId: photo2.photoId },
     { subjectId: bobby.subjectId, photoId: photo2.photoId },
     { subjectId: cathy.subjectId, photoId: photo1.photoId },
-    { subjectId: cathy.subjectId, photoId: photo3.photoId },
+    { subjectId: cathy.subjectId, photoId: photo3.photoId }
   ])
-  .run(pool);
+  .run(pool)
 ```
 
 And now query for all photos with their subjects:
@@ -626,12 +626,12 @@ const photos = await db
         "subjectPhotos",
         { photoId: db.parent() },
         {
-          lateral: db.selectExactlyOne("subjects", { subjectId: db.parent() }),
-        },
-      ),
-    },
+          lateral: db.selectExactlyOne("subjects", { subjectId: db.parent() })
+        }
+      )
+    }
   })
-  .run(pool);
+  .run(pool)
 ```
 
 Note that the `subjects` subquery is passed directly to the `lateral` option of the `subjectPhotos` query, and its result is therefore passed straight through, effectively overwriting the `subjectPhotos` query result. That's fine, since the intermediate `subjectPhotos` results would be effectively just noise here, in the form of duplicate copies of the `photoId` and `subjectId` primary keys.
@@ -668,7 +668,7 @@ CREATE INDEX "storesGeomIdx" ON "stores" USING gist("geom");
 Insert some new stores:
 
 ```typescript
-const gbPoint = (mEast: number, mNorth: number) => db.sql`ST_SetSRID(ST_Point(${db.param(mEast)}, ${db.param(mNorth)}), 27700)`;
+const gbPoint = (mEast: number, mNorth: number) => db.sql`ST_SetSRID(ST_Point(${db.param(mEast)}, ${db.param(mNorth)}), 27700)`
 
 const [brighton] = await db
   .insert("stores", [
@@ -676,9 +676,9 @@ const [brighton] = await db
     { name: "London", geom: gbPoint(534930, 179380) },
     { name: "Edinburgh", geom: gbPoint(323430, 676130) },
     { name: "Newcastle", geom: gbPoint(421430, 563130) },
-    { name: "Exeter", geom: gbPoint(288430, 92130) },
+    { name: "Exeter", geom: gbPoint(288430, 92130) }
   ])
-  .run(pool);
+  .run(pool)
 ```
 
 And now query my local store (Brighton) plus its three nearest alternatives, with their distances in metres, using PostGIS's index-aware [`<-> operator`](https://postgis.net/docs/geometry_distance_knn.html):
@@ -700,16 +700,16 @@ const distance = db.sql<s.stores.SQL, number>`${"geom"} <-> ${db.parent("geom")}
               columns: ["id"],
               extras: {
                 distance, // <-- i.e. distance: distance, referring to the SQLFragment just defined
-                storeName: "name", // <-- a simple alias for the name column
+                storeName: "name" // <-- a simple alias for the name column
               },
               order: { by: distance, direction: "ASC" },
-              limit: 3,
-            },
-          ),
-        },
-      },
+              limit: 3
+            }
+          )
+        }
+      }
     )
-    .run(pool);
+    .run(pool)
 ```
 
 The `extras` option requires `strictNullChecks` (or `strict`) to be turned on in `tsconfig.json`.
@@ -726,12 +726,12 @@ const multiBookAuthorTitleData = await db
     columns: ["authorId"],
     extras: {
       titleCount: db.sql<s.books.SQL, number>`count(${"title"})`,
-      titleChars: db.sql<s.books.SQL, number>`sum(char_length(${"title"}))`,
+      titleChars: db.sql<s.books.SQL, number>`sum(char_length(${"title"}))`
     },
     groupBy: "authorId",
-    having: db.sql<s.books.SQL>`count(${"title"}) > 1`,
+    having: db.sql<s.books.SQL>`count(${"title"}) > 1`
   })
-  .run(pool);
+  .run(pool)
 ```
 
 ##### `distinct`
@@ -744,7 +744,7 @@ For instance:
 const books1 = await db.select("books", db.all, { distinct: true }).run(pool),
   books2 = await db.select("books", db.all, { distinct: "title" }).run(pool),
   books3 = await db.select("books", db.all, { distinct: ["title", "authorId"] }).run(pool),
-  books4 = await db.select("books", db.all, { distinct: db.sql`upper(${"title"})` }).run(pool);
+  books4 = await db.select("books", db.all, { distinct: db.sql`upper(${"title"})` }).run(pool)
 ```
 
 (For the `DISTINCT ON` variants, you should really use [`order`](#order-limit-and-offset) too, or you don't really know which rows you'll get).
@@ -768,15 +768,15 @@ A couple of examples:
 ```typescript
 const authors1 = await db
   .select("authors", db.all, {
-    lock: { for: "NO KEY UPDATE" },
+    lock: { for: "NO KEY UPDATE" }
   })
-  .run(pool);
+  .run(pool)
 
 const authors2 = await db
   .select("authors", db.all, {
-    lock: { for: "UPDATE", of: "authors", wait: "NOWAIT" },
+    lock: { for: "UPDATE", of: "authors", wait: "NOWAIT" }
   })
-  .run(pool);
+  .run(pool)
 ```
 
 => shortcuts.ts /_ === count, sum, avg === _/
@@ -788,7 +788,7 @@ The `count`, `avg`, `sum`, `min` and `max` functions generate `SELECT` queries t
 They're used in a very similar way to `select`, like this:
 
 ```typescript
-const numberOfAuthors = await db.count("authors", db.all).run(pool);
+const numberOfAuthors = await db.count("authors", db.all).run(pool)
 ```
 
 #### `JSONSelectable`
@@ -824,25 +824,25 @@ When using these `` number | `${number}` `` values in code, you will likely want
 Here's an example:
 
 ```typescript
-import * as db from "@brand-map/postgres/pg";
-import pool from "./pgPool.js";
-import pg from "pg";
-import Big from "big.js"; // third-party arbitrary-precision library
+import * as db from "@brand-map/postgres/pg"
+import pool from "./pgPool.js"
+import pg from "pg"
+import Big from "big.js" // third-party arbitrary-precision library
 
 // note: set `"customJsonParsingForLargeNumbers": true` in brand-map-postgres.config.json
 
-db.enableCustomJSONParsingForLargeNumbers(pg);
+db.enableCustomJSONParsingForLargeNumbers(pg)
 
 // bigints
 
-const bigints = await db.select("bigints", db.all, { order: { by: "bigintValue", direction: "ASC" } }).run(pool);
+const bigints = await db.select("bigints", db.all, { order: { by: "bigintValue", direction: "ASC" } }).run(pool)
 
 for (const { bigintValue: raw } of bigints) {
   // raw is number | `${number}`
-  const number = Number(raw); // DON'T do this: may become a different integer
-  const bigint = BigInt(raw); // do this instead
+  const number = Number(raw) // DON'T do this: may become a different integer
+  const bigint = BigInt(raw) // do this instead
 
-  console.log("raw:", raw, "/ as Number:", number, "/ as BigInt:", bigint);
+  console.log("raw:", raw, "/ as Number:", number, "/ as BigInt:", bigint)
 
   // Note that numbers above `Number.MAX_SAFE_INTEGER` are still returned as
   // numbers *if* that doesn't change them. For example, 9007199254740993 is
@@ -853,17 +853,17 @@ for (const { bigintValue: raw } of bigints) {
 
 // numerics
 
-const numerics = await db.select("numerics", db.all, { order: { by: "numericValue", direction: "ASC" } }).run(pool);
+const numerics = await db.select("numerics", db.all, { order: { by: "numericValue", direction: "ASC" } }).run(pool)
 
 for (const { numericValue: raw } of numerics) {
   // raw is number | `${number}`
-  const number = Number(raw); // DON'T do this: may overflow or lose precision
-  const bigdec = Big(raw); // do this instead
+  const number = Number(raw) // DON'T do this: may overflow or lose precision
+  const bigdec = Big(raw) // do this instead
 
-  console.log("raw:", raw, "/ as Number:", number, "/ as Big:", bigdec);
+  console.log("raw:", raw, "/ as Number:", number, "/ as Big:", bigdec)
 }
 
-await pool.end();
+await pool.end()
 ```
 
 => transaction.ts export async function transaction<T, M extends IsolationLevel>(

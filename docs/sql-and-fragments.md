@@ -12,7 +12,7 @@ The `sql` function is [generic](https://www.typescriptlang.org/docs/handbook/gen
 
 ```typescript
 const authors = await db.sql<s.authors.SQL, s.authors.Selectable[]>`
-  SELECT * FROM ${"authors"}`.run(pool);
+  SELECT * FROM ${"authors"}`.run(pool)
 ```
 
 The first type variable, `Interpolations` (above: `s.authors.SQL`), defines allowable interpolation values. If not specified, it defaults to `db.SQL`: this is the union of all the per-table `SQL` types, and thus allows all table and column names present in the database as string interpolations (some of which would throw runtime errors in this case).
@@ -25,9 +25,9 @@ Take another example of these type variables:
 
 ```typescript
 const [{ random }] = await db.sql<never, [{ random: number }]>`
-  SELECT random()`.run(pool);
+  SELECT random()`.run(pool)
 
-console.log(random);
+console.log(random)
 ```
 
 `Interpolations` is `never` because nothing needs to be interpolated in this query, and the `RunResult` type says that the query will return one row comprising one numeric column, named `random`. The `random` TypeScript variable we initialize will of course be typed as a `number`.
@@ -71,7 +71,7 @@ More critically, **never never never** explicitly override type-checking so as t
 ```typescript
 const nameSubmittedByUser = 'books"; DROP TABLE "authors"; --',
   title = await db.sql<any>`
-    SELECT * FROM ${nameSubmittedByUser} LIMIT 1`.run(pool); // NEVER do this!
+    SELECT * FROM ${nameSubmittedByUser} LIMIT 1`.run(pool) // NEVER do this!
 ```
 
 If you override type-checking to pass untrusted data to @brand-map/postgres in unexpected places, such as the above use of `any`, you can expect successful SQL injection attacks.
@@ -87,11 +87,11 @@ In the `INSERT` context, pass them each the same `Insertable` object: `cols` is 
 ```typescript
 const author: s.authors.Insertable = {
     name: "Joseph Conrad",
-    isLiving: false,
+    isLiving: false
   },
   [insertedAuthor] = await db.sql<s.authors.SQL, s.authors.Selectable[]>`
     INSERT INTO ${"authors"} (${db.cols(author)})
-    VALUES (${db.vals(author)}) RETURNING *`.run(pool);
+    VALUES (${db.vals(author)}) RETURNING *`.run(pool)
 ```
 
 The `cols` and `vals` wrappers can also each take an array instead of an object.
@@ -100,11 +100,11 @@ For the `cols` function, this can help us select only a subset of columns, in co
 
 ```typescript
 // the <const> prevents generalization to string[]
-const bookCols = <const>["id", "title"];
-type BookDatum = s.books.OnlyCols<typeof bookCols>;
+const bookCols = <const>["id", "title"]
+type BookDatum = s.books.OnlyCols<typeof bookCols>
 
 const bookData = await db.sql<s.books.SQL, BookDatum[]>`
-    SELECT ${db.cols(bookCols)} FROM ${"books"}`.run(pool);
+    SELECT ${db.cols(bookCols)} FROM ${"books"}`.run(pool)
 ```
 
 For the `vals` function, this can help with `IN (...)` queries, such as the following:
@@ -112,7 +112,7 @@ For the `vals` function, this can help with `IN (...)` queries, such as the foll
 ```typescript
 const authorIds = [1, 2, 123],
   authors = await db.sql<s.authors.SQL, s.authors.Selectable[]>` 
-    SELECT * FROM ${"authors"} WHERE ${"id"} IN (${db.vals(authorIds)})`.run(pool);
+    SELECT * FROM ${"authors"} WHERE ${"id"} IN (${db.vals(authorIds)})`.run(pool)
 ```
 
 #### `Whereable`
@@ -124,7 +124,7 @@ For example:
 ```typescript
 const title = "Northern Lights",
   books = await db.sql<s.books.SQL, s.books.Selectable[]>`
-    SELECT * FROM ${"books"} WHERE ${{ title }}`.run(pool);
+    SELECT * FROM ${"books"} WHERE ${{ title }}`.run(pool)
 ```
 
 (If you need to specify a `CAST` of a parameter to a specific SQL type, you can also manually wrap `Whereable` values using [`param`](#paramvalue-any-cast-boolean--string-parameter) — this is useful primarily when using [the shortcut functions](/joins-and-shortcuts#shortcut-functions-and-lateral-joins)).
@@ -138,8 +138,8 @@ const titleLike = "Northern%",
   books = await db.sql<s.books.SQL, s.books.Selectable[]>`
     SELECT * FROM ${"books"} WHERE ${{
       title: db.sql`${db.self} LIKE ${db.param(titleLike)}`,
-      createdAt: db.sql`${db.self} > now() - INTERVAL '7 days'`,
-    }}`.run(pool);
+      createdAt: db.sql`${db.self} > now() - INTERVAL '7 days'`
+    }}`.run(pool)
 ```
 
 Finally, there's a set of helper functions you can use to create appropriate `SQLFragment`s like these for use as `Whereable` values. The advantages are: (1) there's slighly less to type, and (2) you get type-checking on their arguments (so you're not tempted to compare incomparable things).
@@ -151,8 +151,8 @@ const titleLike = "Northern%",
   books = await db.sql<s.books.SQL, s.books.Selectable[]>`
     SELECT * FROM ${"books"} WHERE ${{
       title: dc.like(titleLike),
-      createdAt: dc.after(dc.fromNow(-7, "days")),
-    }}`.run(pool);
+      createdAt: dc.after(dc.fromNow(-7, "days"))
+    }}`.run(pool)
 ```
 
 #### `self`
@@ -168,7 +168,7 @@ For example:
 ```typescript
 const title = "Pride and Prejudice",
   books = await db.sql<s.books.SQL, s.books.Selectable[]>`
-    SELECT * FROM ${"books"} WHERE ${"title"} = ${db.param(title)}`.run(pool);
+    SELECT * FROM ${"books"} WHERE ${"title"} = ${db.param(title)}`.run(pool)
 ```
 
 This same mechanism is applied automatically when we use [a `Whereable` object](#whereable) (and in this example, using a `Whereable` would be more readable and more concise). It's also applied when we use [the `vals` function](#cols-and-vals) to create a `ColumnValues` wrapper object.
@@ -221,9 +221,9 @@ The `lateralSQL` variable — a `SQLFragment[]` — is subsequently interpolate
 
 Note that a useful idiom also seen here is the use of the empty array (`[]`) to conditionally interpolate nothing at all.
 
-#### `raw(value: string): DangerousRawString`
+#### `raw(value: string): __DANGEROUS__RawString`
 
-The `raw` function returns `DangerousRawString` wrapper instances. This represents an escape hatch, enabling us to interpolate arbitrary strings into queries in contexts where the `param` wrapper is unsuitable (such as when we're interpolating basic SQL syntax elements). **If you pass user-controlled data to this function you will open yourself up to SQL injection attacks.**
+The `raw` function returns `__DANGEROUS__RawString` wrapper instances. This represents an escape hatch, enabling us to interpolate arbitrary strings into queries in contexts where the `param` wrapper is unsuitable (such as when we're interpolating basic SQL syntax elements). **If you pass user-controlled data to this function you will open yourself up to SQL injection attacks.**
 
 #### `parent(columnName?: string): ParentColumn`
 
@@ -277,9 +277,9 @@ For example:
 const authorId = 12, // from some untrusted source
   query = db.sql<s.books.SQL, s.books.Selectable[]>`
     SELECT * FROM ${"books"} WHERE ${{ authorId }}`,
-  compiled = query.compile();
+  compiled = query.compile()
 
-console.log(compiled);
+console.log(compiled)
 ```
 
 You may never need this function. Use it if and when you want to see the SQL that would be executed by the `run` function, without in fact executing it.
@@ -298,12 +298,12 @@ For example, imagine we wanted to create a function returning a query that, when
 
 ```typescript
 function dbNowQuery() {
-  const query = db.sql<never, string>`SELECT now()::text AS now`;
-  query.runResultTransform = (qr) => qr.rows[0].now;
-  return query;
+  const query = db.sql<never, string>`SELECT now()::text AS now`
+  query.runResultTransform = qr => qr.rows[0].now
+  return query
 }
 
-const dbNow = await dbNowQuery().run(pool);
+const dbNow = await dbNowQuery().run(pool)
 // dbNow is a string
 ```
 

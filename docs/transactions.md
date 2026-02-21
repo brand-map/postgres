@@ -7,17 +7,19 @@ outline: deep
 ### `transaction`
 
 ```typescript:norun
-export enum IsolationLevel {
+export const IsolationLevel = {
   // these are the only meaningful values in Postgres:
-  // see https://www.postgresql.org/docs/11/sql-set-transaction.html
-  Serializable = "SERIALIZABLE",
-  RepeatableRead = "REPEATABLE READ",
-  ReadCommitted = "READ COMMITTED",
-  SerializableReadOnly = "SERIALIZABLE, READ ONLY",
-  RepeatableReadReadOnly = "REPEATABLE READ, READ ONLY",
-  ReadCommittedReadOnly = "READ COMMITTED, READ ONLY",
-  SerializableReadOnlyDeferrable = "SERIALIZABLE, READ ONLY, DEFERRABLE"
-}
+  // see https://www.postgresql.org/docs/current/sql-set-transaction.html
+  Serializable: "SERIALIZABLE",
+  RepeatableRead: "REPEATABLE READ",
+  ReadCommitted: "READ COMMITTED",
+  SerializableReadOnly: "SERIALIZABLE, READ ONLY",
+  RepeatableReadReadOnly: "REPEATABLE READ, READ ONLY",
+  ReadCommittedReadOnly: "READ COMMITTED, READ ONLY",
+  SerializableReadOnlyDeferrable: "SERIALIZABLE, READ ONLY, DEFERRABLE",
+} as const;
+
+export type IsolationLevel = (typeof IsolationLevel)[keyof typeof IsolationLevel];
 export async function transaction<T, M extends IsolationLevel>(
   transactionClientOrQueryable: Queryable | TransactionClient<IsolationSatisfying<M>>,
   isolationLevel: M,
@@ -56,46 +58,46 @@ We populate those tables with two doctors and two days' shifts:
 await db
   .insert("doctors", [
     { id: 1, name: "Annabel" },
-    { id: 2, name: "Brian" },
+    { id: 2, name: "Brian" }
   ])
-  .run(pool);
+  .run(pool)
 
 await db
   .insert("shifts", [
     { day: "2020-12-24", doctorId: 1 },
     { day: "2020-12-24", doctorId: 2 },
     { day: "2020-12-25", doctorId: 1 },
-    { day: "2020-12-25", doctorId: 2 },
+    { day: "2020-12-25", doctorId: 2 }
   ])
-  .run(pool);
+  .run(pool)
 ```
 
 The important business logic is that there must always be _at least one doctor_ on shift. Now let's say both doctors happen at the same moment to request leave for 25 December.
 
 ```typescript
 const requestLeaveForDoctorOnDay = async (doctorId: number, day: db.DateString) =>
-  db.transaction(pool, db.IsolationLevel.Serializable, async (transactionClient) => {
+  db.transaction(pool, db.IsolationLevel.Serializable, async transactionClient => {
     const otherDoctorsOnShift = await db
       .count("shifts", {
         doctorId: db.sql`${db.self} != ${db.param(doctorId)}`,
-        day,
+        day
       })
-      .run(transactionClient);
-    if (otherDoctorsOnShift === 0) return false;
+      .run(transactionClient)
+    if (otherDoctorsOnShift === 0) return false
 
-    await db.deletes("shifts", { day, doctorId }).run(transactionClient);
-    return true;
-  });
+    await db.deletes("shifts", { day, doctorId }).run(transactionClient)
+    return true
+  })
 
 const [leaveBookedForAnnabel, leaveBookedForBrian] = await Promise.all([
   // in practice, these requests would come from different front-ends
   requestLeaveForDoctorOnDay(1, "2020-12-25"),
-  requestLeaveForDoctorOnDay(2, "2020-12-25"),
-]);
+  requestLeaveForDoctorOnDay(2, "2020-12-25")
+])
 
 console.log(`Leave booked for:
   Annabel – ${leaveBookedForAnnabel}
-  Brian – ${leaveBookedForBrian}`);
+  Brian – ${leaveBookedForBrian}`)
 ```
 
 Expanding the results, we see that one of the requests is retried and then fails — as it must to retain one doctor on shift — thanks to the `SERIALIZABLE` isolation. `REPEATABLE READ`, which is one isolation level weaker, wouldn't help here.
@@ -123,12 +125,12 @@ export type IsolationSatisfying<T extends IsolationLevel> = {
   /* ... */
 }[T];
 
-export type TxnClientForSerializable = TransactionClient<IsolationSatisfying<IsolationLevel.Serializable>>;
-export type TxnClientForRepeatableRead = TransactionClient<IsolationSatisfying<IsolationLevel.RepeatableRead>>;
+export type TransactionClientForSerializable = TransactionClient<IsolationSatisfying<IsolationLevel.Serializable>>;
+export type TransactionClientForRepeatableRead = TransactionClient<IsolationSatisfying<IsolationLevel.RepeatableRead>>;
 /* ... */
 ```
 
-If you find yourself passing transaction clients around, you may find the `IsolationSatisfying` generic useful. For example, if you type a `transactionClient` argument to a function as `IsolationSatisfying<IsolationLevel.RepeatableRead>` — probably by using the alias type `TxnClientForRepeatableRead` — you can call it with a client having `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
+If you find yourself passing transaction clients around, you may find the `IsolationSatisfying` generic useful. For example, if you type a `transactionClient` argument to a function as `IsolationSatisfying<IsolationLevel.RepeatableRead>` — probably by using the alias type `TransactionClientForRepeatableRead` — you can call it with a client having `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
 
 #### Transaction sharing
 
@@ -145,37 +147,37 @@ Let's see how this helps. We'll modify the `transferMoney` function to take a po
 With that done, we can now use `transferMoney` both for individual transfers, without worrying about transactions, and in combination with other operations, by taking charge of the transaction ourselves:
 
 ```typescript
-const [accountA, accountB, accountC] = await db.insert("bankAccounts", [{ balance: 50 }, { balance: 50 }, { balance: 50 }]).run(pool);
+const [accountA, accountB, accountC] = await db.insert("bankAccounts", [{ balance: 50 }, { balance: 50 }, { balance: 50 }]).run(pool)
 
-const transferMoney = (sendingAccountId: number, receivingAccountId: number, amount: number, txnClientOrPool: typeof pool | db.TxnClientForSerializable) =>
-  db.serializable(txnClientOrPool, (transactionClient) =>
+const transferMoney = (sendingAccountId: number, receivingAccountId: number, amount: number, transactionClientOrPool: typeof pool | db.TransactionClientForSerializable) =>
+  db.serializable(transactionClientOrPool, transactionClient =>
     Promise.all([
       db.update("bankAccounts", { balance: db.sql`${db.self} - ${db.param(amount)}` }, { id: sendingAccountId }).run(transactionClient),
-      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(transactionClient),
-    ]),
-  );
+      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(transactionClient)
+    ])
+  )
 
 // single transfer, as before (but passing in `pool`)
 try {
-  await transferMoney(accountA.id, accountB.id, 60, pool);
+  await transferMoney(accountA.id, accountB.id, 60, pool)
 } catch (err: any) {
-  console.log(err.message, "/", err.detail);
+  console.log(err.message, "/", err.detail)
 }
 
 // multiple transfers, passing in an external transaction
 try {
-  await db.serializable(pool, (transactionClient) =>
-    Promise.all([transferMoney(accountA.id, accountB.id, 40, transactionClient), transferMoney(accountA.id, accountC.id, 40, transactionClient)]),
-  );
+  await db.serializable(pool, transactionClient =>
+    Promise.all([transferMoney(accountA.id, accountB.id, 40, transactionClient), transferMoney(accountA.id, accountC.id, 40, transactionClient)])
+  )
 } catch (err: any) {
-  console.log(err.message, "/", err.detail);
+  console.log(err.message, "/", err.detail)
 }
 
-await db.select("bankAccounts", { id: dc.isIn([accountA.id, accountB.id, accountC.id]) }).run(pool);
+await db.select("bankAccounts", { id: dc.isIn([accountA.id, accountB.id, accountC.id]) }).run(pool)
 ```
 
 If you expand the results you'll see that both transactions fail, as intended.
 
 Happily, the type system will prevent us from trying to pass `transferMoney` a database client associated with an insufficiently isolated transaction. If we were to substitute `db.serializable` with `db.repeatableRead` inside the second `try` block, TypeScript would complain.
 
-=> pgErrors.ts export function isDatabaseError(err: Error, ...types: (keyof typeof pgErrors)[]) {
+=> postgresErrors.ts export function isDatabaseError(err: Error, ...types: (keyof typeof postgresErrors)[]) {

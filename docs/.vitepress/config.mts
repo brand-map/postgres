@@ -1,4 +1,4 @@
-import { defineConfig } from "vitepress";
+import { defineConfig } from "vitepress"
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -12,7 +12,7 @@ export default defineConfig({
       { text: "Clients", link: "/database-clients" },
       { text: "SQL Core", link: "/sql-and-fragments" },
       { text: "Joins", link: "/joins-and-shortcuts" },
-      { text: "Transactions", link: "/transactions" },
+      { text: "Transactions", link: "/transactions" }
     ],
 
     sidebar: [
@@ -23,8 +23,8 @@ export default defineConfig({
           { text: "Overview", link: "/overview" },
           { text: "Getting Started", link: "/getting-started" },
           { text: "Database Clients", link: "/database-clients" },
-          { text: "About", link: "/about" },
-        ],
+          { text: "About", link: "/about" }
+        ]
       },
       {
         text: "Core Querying",
@@ -34,18 +34,18 @@ export default defineConfig({
           { text: "Transactions", link: "/transactions" },
           { text: "Errors", link: "/errors" },
           { text: "Utility Types", link: "/utility-types" },
-          { text: "Run-time Configuration", link: "/runtime-configuration" },
-        ],
+          { text: "Run-time Configuration", link: "/runtime-configuration" }
+        ]
       },
       {
         text: "Examples",
         items: [
           { text: "Runtime API", link: "/api-examples" },
-          { text: "Generator Config", link: "/markdown-examples" },
-        ],
-      },
+          { text: "Generator Config", link: "/markdown-examples" }
+        ]
+      }
     ],
 
-    socialLinks: [{ icon: "github", link: "https://github.com/brand-map/postgres" }],
-  },
-});
+    socialLinks: [{ icon: "github", link: "https://github.com/brand-map/postgres" }]
+  }
+})

@@ -1,8 +1,8 @@
-import { pascalCase } from "es-toolkit";
+import type { QueryResult, SqlQuery } from "../../types"
 
-import type { QueryResult, SqlQuery } from "../../types/query";
+import { pascalCase } from "../case"
 
-export type EnumData = { [k: string]: string[] };
+export type EnumData = { [k: string]: string[] }
 
 export async function enumDataForSchema(schemaName: string, queryFn: (q: SqlQuery) => Promise<QueryResult<any>>): Promise<EnumData> {
   const { rows } = await queryFn({
@@ -16,31 +16,31 @@ export async function enumDataForSchema(schemaName: string, queryFn: (q: SqlQuer
         JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
         WHERE n.nspname = $1
         ORDER BY t.typname ASC, e.enumlabel ASC`,
-    values: [schemaName],
-  });
+    values: [schemaName]
+  })
 
-  const enums: EnumData = {};
+  const enums: EnumData = {}
 
   for (const row of rows as { name: string; value: string }[]) {
     if (!enums[row.name]) {
-      enums[row.name] = [];
+      enums[row.name] = []
     }
-    enums[row.name]!.push(row.value);
+    enums[row.name]!.push(row.value)
   }
 
-  return enums;
+  return enums
 }
 
 export function enumTypesForEnumData(enums: EnumData) {
   const types = Object.keys(enums)
     .map(
-      (name) => `
-export type ${pascalCase(name)} = ${enums[name]!.map((v) => `'${v}'`).join(" | ")};
+      name => `
+export type ${pascalCase(name)} = ${enums[name]!.map(v => `'${v}'`).join(" | ")};
 export namespace every {
-  export type ${pascalCase(name)} = [${enums[name]!.map((v) => `'${v}'`).join(", ")}];
-}`,
+  export type ${pascalCase(name)} = [${enums[name]!.map(v => `'${v}'`).join(", ")}];
+}`
     )
-    .join("");
+    .join("")
 
-  return types;
+  return types
 }

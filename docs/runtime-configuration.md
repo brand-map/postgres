@@ -11,12 +11,12 @@ There are a few configuration options you can set at runtime:
 ```typescript:norun
 export interface Config {
   transactionAttemptsMax: number;
-  transactionRetryDelay: { minMs: number; maxMs: number };
+  transactionRetryDelay: { min: number; max: number };
   castArrayParamsToJson: boolean;
   castObjectParamsToJson: boolean;
-  queryListener?(query: SQLQuery, txnId?: number): void;
-  resultListener?(result: any, txnId?: number, elapsedMs?: number): void;
-  transactionListener?(message: string, txnId?: number): void;
+  queryListener?(query: SQLQuery, transactionId?: number): void;
+  resultListener?(result: any, transactionId?: number, elapsed?: number): void;
+  transactionListener?(message: string, transactionId?: number): void;
 }
 export interface SQLQuery {
   text: string;
@@ -28,7 +28,7 @@ Read the current values with `getConfig()` and set new values with `setConfig(ne
 
 - `transactionAttemptsMax` determines how many times the `transaction` helper will try to execute a query in the face of serialization errors before giving up. It defaults to `5`.
 
-- `transactionRetryDelay` determines the range within which the `transaction` helper will pick a random delay before each retry. It's expressed in milliseconds and defaults to `{ minMs: 25, maxMs: 250 }`.
+- `transactionRetryDelay` determines the range within which the `transaction` helper will pick a random delay before each retry. It's expressed in milliseconds and defaults to `{ min: 25, max: 250 }`.
 
 - `castArrayParamsToJson` and `castObjectParamsToJson` control whether `Parameter` objects containing arrays and objects, respectively, are to be automatically stringified and cast as Postgres `json` when interpolated into a query. Both default to `false`. See further discussion below.
 
@@ -42,16 +42,16 @@ You might use one or more of the three listener functions to implement logging. 
 const
   queryDebug = debug('db:query'),
   resultDebug = debug('db:result'),
-  txnDebug = debug('db:transaction'),
-  strFromTxnId = (txnId: number | undefined) => txnId === undefined ? '-' : String(txnId);
+  transactionDebug = debug('db:transaction'),
+  strFromTransactionId = (transactionId: number | undefined) => transactionId === undefined ? '-' : String(transactionId);
 
 db.setConfig({
-  queryListener: (query, txnId) =>
-    queryDebug(`(%s) %s\n%o`, strFromTxnId(txnId), query.text, query.values),
-  resultListener: (result, txnId, elapsedMs) =>
-    resultDebug(`(%s, %dms) %O`, strFromTxnId(txnId), elapsedMs?.toFixed(1), result),
-  transactionListener: (message, txnId) =>
-    txnDebug(`(%s) %s`, strFromTxnId(txnId), message),
+  queryListener: (query, transactionId) =>
+    queryDebug(`(%s) %s\n%o`, strFromTransactionId(transactionId), query.text, query.values),
+  resultListener: (result, transactionId, elapsed) =>
+    resultDebug(`(%s, %dms) %O`, strFromTransactionId(transactionId), elapsed?.toFixed(1), result),
+  transactionListener: (message, transactionId) =>
+    transactionDebug(`(%s) %s`, strFromTransactionId(transactionId), message),
 });
 ```
 
@@ -87,27 +87,27 @@ CREATE TABLE "arrays" ("jsonValue" jsonb, "textArray" text[]);
 When `castArrayParamsToJson` is `false` (the default):
 
 ```typescript
-db.setConfig({ castArrayParamsToJson: false }); // the default
+db.setConfig({ castArrayParamsToJson: false }) // the default
 
 await db
   .insert("arrays", {
     jsonValue: db.param(["a", "b", "c"], true), // true -> manual cast to JSON
-    textArray: ["a", "b", "c"],
+    textArray: ["a", "b", "c"]
   })
-  .run(pool);
+  .run(pool)
 ```
 
 Or with `castArrayParamsToJson` set to `true`:
 
 ```typescript
-db.setConfig({ castArrayParamsToJson: true });
+db.setConfig({ castArrayParamsToJson: true })
 
 await db
   .insert("arrays", {
     jsonValue: ["a", "b", "c"],
-    textArray: db.param(["a", "b", "c"], false), // false -> prevent automatic cast to JSON
+    textArray: db.param(["a", "b", "c"], false) // false -> prevent automatic cast to JSON
   })
-  .run(pool);
+  .run(pool)
 ```
 
 The `castObjectParamsToJson` option has a fairly similar effect. As seen above, `pg` already stringifies JavaScript objects, but it does not explicitly cast them to `json`, and instead passes them implicitly as `text`. This matters in the (probably rare) case that the parameter then requires an onward cast from `json` to another type.

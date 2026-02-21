@@ -16,21 +16,21 @@ You can also import Bun namespaces from `@brand-map/postgres/bun`.
 ### pg runtime path
 
 ```ts
-import * as db from "@brand-map/postgres/pg";
-import pg from "pg";
+import * as db from "@brand-map/postgres/pg"
+import pg from "pg"
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-await db.select("users", db.all).run(pool);
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
+await db.select("users", db.all).run(pool)
 ```
 
 ### Bun SQL runtime path
 
 ```ts
-import * as db from "@brand-map/postgres/bun";
-import { SQL } from "bun";
+import * as db from "@brand-map/postgres/bun"
+import { SQL } from "bun"
 
-const bunSql = new SQL(process.env.DATABASE_URL!);
-await db.select("users", db.all).run(bunSql);
+const bunSql = new SQL(process.env.DATABASE_URL!)
+await db.select("users", db.all).run(bunSql)
 ```
 
 ## Transactions
@@ -38,21 +38,21 @@ await db.select("users", db.all).run(bunSql);
 ### pg transaction path
 
 ```ts
-import * as db from "@brand-map/postgres/pg";
+import * as db from "@brand-map/postgres/pg"
 
-await db.serializable(pool, async (transactionClient) => {
-  await db.insert("auditLog", { message: "pg transaction" }).run(transactionClient);
-});
+await db.serializable(pool, async transactionClient => {
+  await db.insert("auditLog", { message: "pg transaction" }).run(transactionClient)
+})
 ```
 
 ### Bun SQL transaction path
 
 ```ts
-import * as db from "@brand-map/postgres/bun";
+import * as db from "@brand-map/postgres/bun"
 
-await db.serializable(bunSql, async (transactionClient) => {
-  await db.insert("auditLog", { message: "bun sql transaction" }).run(transactionClient);
-});
+await db.serializable(bunSql, async transactionClient => {
+  await db.insert("auditLog", { message: "bun sql transaction" }).run(transactionClient)
+})
 ```
 
 ## Schema Generation
@@ -60,32 +60,32 @@ await db.serializable(bunSql, async (transactionClient) => {
 ### pg generator path
 
 ```ts
-import * as zg from "@brand-map/postgres/pg";
+import * as zg from "@brand-map/postgres/pg"
 
 await zg.generate({
   client: "pg",
-  config: { connectionString: process.env.DATABASE_URL },
-});
+  config: { connectionString: process.env.DATABASE_URL }
+})
 ```
 
 ### Bun SQL generator path
 
 ```ts
-import * as zg from "@brand-map/postgres/bun";
+import * as zg from "@brand-map/postgres/bun"
 
 await zg.generate({
   client: "bun",
-  options: process.env.DATABASE_URL!,
-});
+  options: process.env.DATABASE_URL!
+})
 ```
 
 Or through the Bun namespace export:
 
 ```ts
-import * as bunPg from "@brand-map/postgres/bun";
+import * as bunPg from "@brand-map/postgres/bun"
 
 await bunPg.generate.generate({
   client: "bun",
-  options: process.env.DATABASE_URL!,
-});
+  options: process.env.DATABASE_URL!
+})
 ```

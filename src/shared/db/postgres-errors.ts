@@ -1,23 +1,19 @@
-interface Error {
-  code?: string;
-}
-
 /**
  * Check whether an error object matches any of a set of Postgres error types.
  * @param err The error to check
  * @param types The Postgres error types to check against
  */
-export function isDatabaseError(err: Error, ...types: (keyof typeof pgErrors)[]) {
-  const { code } = err;
+export function isDatabaseError(err: Error & { code?: string }, ...types: (keyof typeof postgresErrors)[]) {
+  const { code } = err
 
   if (!code || code.length !== 5) {
-    return false;
+    return false
   }
 
-  return types.some((type) => code.startsWith(pgErrors[type]));
+  return types.some(type => code.startsWith(postgresErrors[type]))
 }
 
-const pgErrors = {
+const postgresErrors = {
   SuccessfulCompletion: "00",
   Warning: "01",
   NoData: "02",
@@ -306,5 +302,5 @@ const pgErrors = {
   PlpgsqlError_AssertFailure: "P0004",
   InternalError_InternalError: "XX000",
   InternalError_DataCorrupted: "XX001",
-  InternalError_IndexCorrupted: "XX002",
-};
+  InternalError_IndexCorrupted: "XX002"
+}

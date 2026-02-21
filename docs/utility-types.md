@@ -22,10 +22,10 @@ For example, all ordinary tables in the `public` schema are listed in `public.Al
 @brand-map/postgres also provides a number of type mappings allowing types to be accessed by table name, which are heavily used by the shortcut functions:
 
 - `SelectableForTable<Table>`
-- `JSONSelectableForTable<Table>`
+- `JsonSelectableForTable<Table>`
 - `WhereableForTable<Table>`
 - `InsertableForTable<Table>`
 - `UpdatableForTable<Table>`
 - `UniqueIndexForTable<Table>`
 - `ColumnForTable<Table>`
-- `SQLForTable<Table>`
+- `SqlForTable<Table>`

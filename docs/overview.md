@@ -88,11 +88,11 @@ Let's insert something into that `authors` table for which we just generated the
 ```typescript
 const author: s.authors.Insertable = {
     name: "Gabriel Garcia Marquez",
-    isLiving: false,
+    isLiving: false
   },
   [insertedAuthor] = await db.sql<s.authors.SQL, s.authors.Selectable[]>`
       INSERT INTO ${"authors"} (${db.cols(author)})
-      VALUES (${db.vals(author)}) RETURNING *`.run(pool);
+      VALUES (${db.vals(author)}) RETURNING *`.run(pool)
 ```
 
 We apply the appropriate type to the object we're trying to insert (`s.authors.Insertable`), giving us type-checking and autocompletion on that object. And we specify both which types are allowed as interpolated values in the template string (`s.authors.SQL`) and what type is going to be returned (`s.authors.Selectable[]`) when the query runs.
@@ -117,9 +117,9 @@ Let's use one of them — `insert` — to add two more authors:
 const [doug, janey] = await db
   .insert("authors", [
     { name: "Douglas Adams", isLiving: false },
-    { name: "Jane Austen", isLiving: false },
+    { name: "Jane Austen", isLiving: false }
   ])
-  .run(pool);
+  .run(pool)
 ```
 
 The `insert` shortcut accepts a single `Insertable` or an `Insertable[]` array, and correspondingly returns a single [`JSONSelectable`](/joins-and-shortcuts#jsonselectable) or a `JSONSelectable[]` array. Since we specified `'authors'` as the first argument here, and an array as the second, input and output will be checked and auto-completed as `authors.Insertable[]` and `authors.JSONSelectable[]` respectively.
@@ -161,10 +161,10 @@ const bookAuthorTags = await db
   .select("books", db.all, {
     lateral: {
       author: db.selectExactlyOne("authors", { id: db.parent("authorId") }),
-      tags: db.select("tags", { bookId: db.parent("id") }),
-    },
+      tags: db.select("tags", { bookId: db.parent("id") })
+    }
   })
-  .run(pool);
+  .run(pool)
 ```
 
 This generates an efficient three-table `LATERAL JOIN` that returns a nested JSON structure directly from the database. Every nested element is again fully and automatically typed.
@@ -200,24 +200,24 @@ CREATE TABLE "bankAccounts"
 We can use the transaction helpers like so:
 
 ```typescript
-const [accountA, accountB] = await db.insert("bankAccounts", [{ balance: 50 }, { balance: 50 }]).run(pool);
+const [accountA, accountB] = await db.insert("bankAccounts", [{ balance: 50 }, { balance: 50 }]).run(pool)
 
 const transferMoney = (sendingAccountId: number, receivingAccountId: number, amount: number) =>
-  db.serializable(pool, (transactionClient) =>
+  db.serializable(pool, transactionClient =>
     Promise.all([
       db.update("bankAccounts", { balance: db.sql`${db.self} - ${db.param(amount)}` }, { id: sendingAccountId }).run(transactionClient),
-      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(transactionClient),
-    ]),
-  );
+      db.update("bankAccounts", { balance: db.sql`${db.self} + ${db.param(amount)}` }, { id: receivingAccountId }).run(transactionClient)
+    ])
+  )
 
 try {
-  const [[updatedAccountA], [updatedAccountB]] = await transferMoney(accountA.id, accountB.id, 60);
+  const [[updatedAccountA], [updatedAccountB]] = await transferMoney(accountA.id, accountB.id, 60)
 } catch (err: any) {
-  console.log(err.message, "/", err.detail);
+  console.log(err.message, "/", err.detail)
 }
 ```
 
-Finally, @brand-map/postgres provides a set of hierarchical isolation types so that, for example, if you type a `transactionClient` argument to a function as `TxnClientForRepeatableRead`, you can call it with `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
+Finally, @brand-map/postgres provides a set of hierarchical isolation types so that, for example, if you type a `transactionClient` argument to a function as `TransactionClientForRepeatableRead`, you can call it with `IsolationLevel.Serializable` or `IsolationLevel.RepeatableRead` but not `IsolationLevel.ReadCommitted`.
 
 [Tell me more about the transaction functions »](/transactions#transaction)
 

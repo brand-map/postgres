@@ -9,7 +9,7 @@ outline: deep
 @brand-map/postgres provides a simple function to help you recognise and recover from Postgres errors (from `pg`, Bun SQL, or any compatible client exposing SQLSTATE codes).
 
 ```typescript:norun
-function isDatabaseError(err: Error, ...types: (keyof typeof pgErrors)[]): boolean;
+function isDatabaseError(err: Error, ...types: (keyof typeof postgresErrors)[]): boolean;
 ```
 
 You pass it your JS `Error` object, and one or more [Postgres error names](https://www.postgresql.org/docs/current/errcodes-appendix.html). It returns `true` if your error code matches any of those kinds, and `false` otherwise.
@@ -52,41 +52,41 @@ CREATE TABLE "users"
 Behind the scenes, 253 rows have already been inserted. Let's delete one so we can see the filling-in process in action:
 
 ```typescript
-await db.deletes("users", { id: 123 }).run(pool);
+await db.deletes("users", { id: 123 }).run(pool)
 ```
 
 ```typescript
 async function createUser(friendlyName: string) {
-  return db.serializable(pool, async (transactionClient) => {
-    let user;
+  return db.serializable(pool, async transactionClient => {
+    let user
     try {
-      await db.sql`SAVEPOINT "start"`.run(transactionClient);
-      user = await db.insert("users", { friendlyName }).run(transactionClient);
+      await db.sql`SAVEPOINT "start"`.run(transactionClient)
+      user = await db.insert("users", { friendlyName }).run(transactionClient)
     } catch (err: any) {
-      if (!db.isDatabaseError(err, "DataException_SequenceGeneratorLimitExceeded")) throw err;
+      if (!db.isDatabaseError(err, "DataException_SequenceGeneratorLimitExceeded")) throw err
 
-      await db.sql`ROLLBACK TO "start"`.run(transactionClient);
-      const ipOctet = await getFirstFreeIpOctet(transactionClient);
-      if (!ipOctet) return null;
+      await db.sql`ROLLBACK TO "start"`.run(transactionClient)
+      const ipOctet = await getFirstFreeIpOctet(transactionClient)
+      if (!ipOctet) return null
 
-      user = await db.insert("users", { friendlyName, ipOctet }).run(transactionClient);
+      user = await db.insert("users", { friendlyName, ipOctet }).run(transactionClient)
     }
-    return user;
-  });
+    return user
+  })
 }
 
-async function getFirstFreeIpOctet(transactionClient: db.TxnClientForSerializable) {
+async function getFirstFreeIpOctet(transactionClient: db.TransactionClientForSerializable) {
   const result = await db.sql<s.users.SQL, [{ octet: number }] | []>`
     SELECT gs.octet 
     FROM generate_series(1, 254) AS gs(octet) 
     LEFT JOIN ${"users"} AS u ON u.${"ipOctet"} = gs.octet
     WHERE u.${"ipOctet"} IS NULL
     ORDER BY gs.octet ASC LIMIT 1
-  `.run(transactionClient);
+  `.run(transactionClient)
 
-  return result[0]?.octet;
+  return result[0]?.octet
 }
 
-const [alice, bob, cathy] = [await createUser("Alice"), await createUser("Bob"), await createUser("Cathy")];
-console.log(alice, bob, cathy);
+const [alice, bob, cathy] = [await createUser("Alice"), await createUser("Bob"), await createUser("Cathy")]
+console.log(alice, bob, cathy)
 ```

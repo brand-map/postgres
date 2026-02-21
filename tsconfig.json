@@ -25,7 +25,7 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "paths": {
-      "@brand-map/postgres/schema": ["./src/types/schema.ts"]
+      "@brand-map/postgres/schema": ["./src/schema.ts"]
     }
   },
   "include": ["src/**/*"]
